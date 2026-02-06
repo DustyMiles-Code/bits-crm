@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BITS CRM</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Sidebar Overlay (mobile) -->
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo">BITS CRM</div>
+        <div class="sidebar-search">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="search-input" placeholder="Search contacts... (⌘K)">
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="sidebar-section">
+          <button class="sidebar-item active" id="all-contacts-btn">
+            <span class="sidebar-item-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            </span>
+            <span class="sidebar-item-label">All Contacts</span>
+          </button>
+        </div>
+
+        <div class="sidebar-section">
+          <div class="sidebar-section-title">Groups</div>
+          <div id="groups-list"></div>
+          <button class="sidebar-add-group" id="add-group-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            New Group
+          </button>
+        </div>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="sidebar-user" id="user-menu-btn" style="position:relative">
+          <div class="sidebar-user-avatar" id="user-avatar">?</div>
+          <div class="sidebar-user-info">
+            <div class="sidebar-user-name" id="user-name">User</div>
+            <div class="sidebar-user-email" id="user-email">user@email.com</div>
+          </div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+
+          <div class="dropdown-menu" id="user-dropdown" hidden style="bottom:calc(100% + 4px);top:auto;left:0;right:0">
+            <button class="dropdown-item" id="btn-signout">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1-2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+              Sign Out
+            </button>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <header class="main-header">
+        <div class="main-header-left">
+          <button class="sidebar-toggle" id="sidebar-toggle">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </button>
+          <h1 class="main-title" id="main-title">All Contacts</h1>
+          <span class="main-count" id="main-count">0</span>
+        </div>
+        <div class="main-header-actions" id="main-actions"></div>
+      </header>
+
+      <div class="main-body" id="main-body">
+        <div style="display:flex;justify-content:center;padding:48px">
+          <div class="loading-spinner"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Scripts -->
+  <script src="js/supabase.min.js"></script>
+  <script src="js/supabase-config.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/contacts.js"></script>
+  <script src="js/groups.js"></script>
+  <script src="js/interactions.js"></script>
+  <script src="js/fields.js"></script>
+  <script src="js/reminders.js"></script>
+  <script src="js/import-export.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    document.getElementById('btn-signout').addEventListener('click', () => Auth.signOut());
+  </script>
+</body>
+</html>
