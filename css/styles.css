@@ -1732,6 +1732,66 @@ a:hover { color: var(--accent-hover); }
 }
 
 /* ============================================
+   CUSTOM FIELDS IN MODAL
+   ============================================ */
+.custom-fields-toggle {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-family: var(--font);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  cursor: pointer;
+  padding: var(--sp-1) 0;
+  margin-top: var(--sp-2);
+}
+
+.custom-fields-toggle:hover {
+  color: var(--accent-hover);
+}
+
+.custom-fields-section {
+  border-top: 1px solid var(--border-light);
+  padding-top: var(--sp-4);
+  margin-top: var(--sp-3);
+}
+
+.custom-fields-section[hidden] {
+  display: none;
+}
+
+/* ============================================
+   COLUMN FILTER DROPDOWN
+   ============================================ */
+.column-filter-dropdown {
+  min-width: 200px;
+  padding: var(--sp-2);
+}
+
+.column-filter-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  color: var(--text);
+  transition: var(--transition-fast);
+  user-select: none;
+}
+
+.column-filter-item:hover {
+  background: var(--bg-secondary);
+}
+
+.column-filter-item input[type="checkbox"] {
+  accent-color: var(--accent);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* ============================================
    RESPONSIVE
    ============================================ */
 .sidebar-toggle {
@@ -1772,9 +1832,9 @@ a:hover { color: var(--accent-hover); }
 
 /* Tablet */
 @media (max-width: 1024px) {
-  .contacts-table th:nth-child(7),
-  .contacts-table td:nth-child(7) {
-    display: none; /* hide Notes column (shifted +1 for checkbox col) */
+  .contacts-table th[data-col="notes"],
+  .contacts-table td[data-col="notes"] {
+    display: none;
   }
 }
 
@@ -1905,27 +1965,35 @@ a:hover { color: var(--accent-hover); }
     display: none;
   }
 
-  /* Name cell takes full width (col 2 now, after hidden checkbox) */
-  .contacts-table td:nth-child(2) {
+  /* Hide column filter on mobile */
+  #column-filter-wrapper {
+    display: none;
+  }
+
+  /* Name cell takes full width */
+  .contacts-table td[data-col="name"] {
     width: 100%;
     margin-bottom: var(--sp-1);
   }
 
   /* Email + Company inline */
-  .contacts-table td:nth-child(3),
-  .contacts-table td:nth-child(4) {
+  .contacts-table td[data-col="email"],
+  .contacts-table td[data-col="company"] {
     font-size: var(--font-size-sm);
     color: var(--text-secondary);
   }
 
-  /* Hide less important columns */
-  .contacts-table td:nth-child(5),
-  .contacts-table td:nth-child(7) {
+  /* Hide less important columns on mobile */
+  .contacts-table td[data-col="phone"],
+  .contacts-table td[data-col="title"],
+  .contacts-table td[data-col="last_interaction"],
+  .contacts-table td[data-col="notes"],
+  .contacts-table td[data-col="birthday"] {
     display: none;
   }
 
   /* Goal status */
-  .contacts-table td:nth-child(6) {
+  .contacts-table td[data-col="goal_status"] {
     margin-left: auto;
   }
 

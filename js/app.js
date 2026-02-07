@@ -11,7 +11,8 @@ const App = {
     contacts: [],
     customFields: [],
     selectedContactIds: new Set(),
-    isDragging: false
+    isDragging: false,
+    visibleColumns: new Set(['name', 'email', 'company', 'last_interaction', 'goal_status', 'notes'])
   },
 
   // ── Init ──────────────────────────────────────────
@@ -289,6 +290,13 @@ const App = {
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v6m0 6v6m8.66-13l-5.2 3m-6.92 4l-5.2 3M1.34 8l5.2 3m6.92 4l5.2 3"/></svg>
           Fields
         </button>
+        <div class="dropdown" id="column-filter-wrapper">
+          <button class="btn btn-ghost btn-sm" id="btn-columns" title="Toggle columns">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+            Columns
+          </button>
+          <div class="dropdown-menu column-filter-dropdown" id="column-filter-dropdown" hidden></div>
+        </div>
         <button class="btn btn-primary btn-sm" id="btn-add-contact">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           Add Contact
@@ -300,6 +308,7 @@ const App = {
       document.getElementById('btn-export').addEventListener('click', () => this.handleExport());
       document.getElementById('btn-merge').addEventListener('click', () => this.showMergeModal());
       document.getElementById('btn-custom-fields').addEventListener('click', () => this.showFieldsModal());
+      this.bindColumnFilter();
     } else {
       this.mainTitle.innerHTML = `
         <button class="btn btn-ghost btn-sm" id="btn-back">
@@ -315,6 +324,97 @@ const App = {
         this.state.currentContactId = null;
         this.loadContacts().then(() => this.render());
       });
+    }
+  },
+
+  // Column definitions for table
+  TABLE_COLUMNS: [
+    { key: 'name', label: 'Name', sortKey: 'first_name' },
+    { key: 'email', label: 'Email', sortKey: 'email' },
+    { key: 'phone', label: 'Phone', sortKey: null },
+    { key: 'company', label: 'Company', sortKey: 'company' },
+    { key: 'title', label: 'Title', sortKey: null },
+    { key: 'last_interaction', label: 'Last Interaction', sortKey: null },
+    { key: 'goal_status', label: 'Goal Status', sortKey: null },
+    { key: 'birthday', label: 'Birthday', sortKey: null },
+    { key: 'notes', label: 'Notes', sortKey: null }
+  ],
+
+  bindColumnFilter() {
+    const btn = document.getElementById('btn-columns');
+    const dropdown = document.getElementById('column-filter-dropdown');
+    if (!btn || !dropdown) return;
+
+    const renderDropdown = () => {
+      dropdown.innerHTML = this.TABLE_COLUMNS.map(col => `
+        <label class="column-filter-item">
+          <input type="checkbox" value="${col.key}" ${this.state.visibleColumns.has(col.key) ? 'checked' : ''}>
+          <span>${col.label}</span>
+        </label>
+      `).join('');
+
+      dropdown.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+        cb.addEventListener('change', (e) => {
+          e.stopPropagation();
+          if (cb.checked) {
+            this.state.visibleColumns.add(cb.value);
+          } else {
+            this.state.visibleColumns.delete(cb.value);
+          }
+          this.renderTable();
+        });
+      });
+    };
+
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const wasHidden = dropdown.hidden;
+      // Close all other dropdowns
+      document.querySelectorAll('.dropdown-menu:not([hidden])').forEach(d => d.hidden = true);
+      if (wasHidden) {
+        renderDropdown();
+        dropdown.hidden = false;
+      }
+    });
+
+    dropdown.addEventListener('click', (e) => {
+      e.stopPropagation();
+    });
+  },
+
+  renderColumnCell(col, contact) {
+    switch (col.key) {
+      case 'name':
+        return `
+          <div class="contact-name-cell">
+            <div class="contact-avatar">${Contacts.getInitials(contact)}</div>
+            <div>
+              <div class="contact-name-text">${this.esc(Contacts.getFullName(contact))}</div>
+              ${contact.title ? `<div class="contact-company-text">${this.esc(contact.title)}</div>` : ''}
+            </div>
+          </div>`;
+      case 'email':
+        return `<span class="contact-email-text">${this.esc(Contacts.getPrimaryEmail(contact) || '—')}</span>`;
+      case 'phone': {
+        const phones = Contacts.getPhones(contact);
+        return this.esc(phones.length > 0 ? phones[0].value : '—');
+      }
+      case 'company':
+        return this.esc(contact.company || '—');
+      case 'title':
+        return this.esc(contact.title || '—');
+      case 'last_interaction':
+        return this.renderLastInteraction(contact);
+      case 'goal_status':
+        return this.renderKitStatus(contact);
+      case 'birthday':
+        return contact.birthday
+          ? new Date(contact.birthday + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+          : '—';
+      case 'notes':
+        return `<div class="notes-preview">${this.esc(contact.notes || '—')}</div>`;
+      default:
+        return '—';
     }
   },
 
@@ -334,6 +434,8 @@ const App = {
       return;
     }
 
+    const visibleCols = this.TABLE_COLUMNS.filter(col => this.state.visibleColumns.has(col.key));
+
     const sortIcon = (col) => {
       if (this.state.sortBy !== col) return '<span class="sort-icon">↕</span>';
       return `<span class="sort-icon">${this.state.sortDir === 'asc' ? '↑' : '↓'}</span>`;
@@ -347,32 +449,17 @@ const App = {
           <thead>
             <tr>
               <th class="th-select"><input type="checkbox" title="Select all"></th>
-              <th class="${sorted('first_name')}" data-sort="first_name">Name ${sortIcon('first_name')}</th>
-              <th class="${sorted('email')}" data-sort="email">Email ${sortIcon('email')}</th>
-              <th class="${sorted('company')}" data-sort="company">Company ${sortIcon('company')}</th>
-              <th>Last Interaction</th>
-              <th>Goal Status</th>
-              <th>Notes</th>
+              ${visibleCols.map(col => col.sortKey
+                ? `<th class="${sorted(col.sortKey)}" data-sort="${col.sortKey}" data-col="${col.key}">${col.label} ${sortIcon(col.sortKey)}</th>`
+                : `<th data-col="${col.key}">${col.label}</th>`
+              ).join('')}
             </tr>
           </thead>
           <tbody>
             ${this.state.contacts.map(c => `
               <tr data-contact-id="${c.id}" draggable="true" class="${this.state.selectedContactIds.has(c.id) ? 'row-selected' : ''}">
                 <td class="td-select"><input type="checkbox" ${this.state.selectedContactIds.has(c.id) ? 'checked' : ''}></td>
-                <td>
-                  <div class="contact-name-cell">
-                    <div class="contact-avatar">${Contacts.getInitials(c)}</div>
-                    <div>
-                      <div class="contact-name-text">${this.esc(Contacts.getFullName(c))}</div>
-                      ${c.title ? `<div class="contact-company-text">${this.esc(c.title)}</div>` : ''}
-                    </div>
-                  </div>
-                </td>
-                <td class="contact-email-text">${this.esc(Contacts.getPrimaryEmail(c) || '—')}</td>
-                <td>${this.esc(c.company || '—')}</td>
-                <td>${this.renderLastInteraction(c)}</td>
-                <td>${this.renderKitStatus(c)}</td>
-                <td><div class="notes-preview">${this.esc(c.notes || '—')}</div></td>
+                ${visibleCols.map(col => `<td data-col="${col.key}">${this.renderColumnCell(col, c)}</td>`).join('')}
               </tr>
             `).join('')}
           </tbody>
@@ -1051,6 +1138,27 @@ const App = {
             <label class="form-label">Notes</label>
             <textarea class="form-textarea" name="notes" rows="3">${this.esc(contact?.notes || '')}</textarea>
           </div>
+          ${this.state.customFields.length > 0 ? `
+            <button type="button" class="custom-fields-toggle" id="custom-fields-toggle">+ Custom Fields</button>
+            <div class="custom-fields-section" id="custom-fields-section" hidden>
+              ${this.state.customFields.map(f => `
+                <div class="form-group" data-custom-field-id="${f.id}">
+                  <label class="form-label">${this.esc(f.name)}</label>
+                  ${f.field_type === 'textarea'
+                    ? `<textarea class="form-textarea custom-field-input" data-field-id="${f.id}" rows="2"></textarea>`
+                    : f.field_type === 'dropdown'
+                    ? `<select class="form-select custom-field-input" data-field-id="${f.id}">
+                        <option value="">— Select —</option>
+                        ${(f.options || []).map(o => `<option value="${this.esc(o)}">${this.esc(o)}</option>`).join('')}
+                      </select>`
+                    : f.field_type === 'date'
+                    ? `<input class="form-input custom-field-input" type="date" data-field-id="${f.id}">`
+                    : `<input class="form-input custom-field-input" data-field-id="${f.id}">`
+                  }
+                </div>
+              `).join('')}
+            </div>
+          ` : ''}
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary modal-close">Cancel</button>
@@ -1060,7 +1168,7 @@ const App = {
     `;
 
     const overlay = this.showModal(html, {
-      onOpen: (ol) => {
+      onOpen: async (ol) => {
         const emailsContainer = ol.querySelector('#emails-container');
         const phonesContainer = ol.querySelector('#phones-container');
 
@@ -1076,6 +1184,35 @@ const App = {
 
         this.bindMultiValueRemove(emailsContainer);
         this.bindMultiValueRemove(phonesContainer);
+
+        // Custom fields toggle
+        const cfToggle = ol.querySelector('#custom-fields-toggle');
+        const cfSection = ol.querySelector('#custom-fields-section');
+        if (cfToggle && cfSection) {
+          cfToggle.addEventListener('click', () => {
+            const isHidden = cfSection.hidden;
+            cfSection.hidden = !isHidden;
+            cfToggle.textContent = isHidden ? '− Custom Fields' : '+ Custom Fields';
+          });
+
+          // Pre-fill custom field values when editing
+          if (isEdit) {
+            try {
+              const fieldValues = await Fields.getValuesForContact(contact.id);
+              fieldValues.forEach(fv => {
+                const input = cfSection.querySelector(`[data-field-id="${fv.custom_field_id}"]`);
+                if (input) input.value = fv.value || '';
+              });
+              // Auto-expand if any values exist
+              if (fieldValues.some(fv => fv.value)) {
+                cfSection.hidden = false;
+                cfToggle.textContent = '− Custom Fields';
+              }
+            } catch (err) {
+              console.warn('Failed to load custom field values:', err);
+            }
+          }
+        }
       }
     });
 
@@ -1112,17 +1249,41 @@ const App = {
       const btn = form.querySelector('button[type="submit"]');
       btn.disabled = true;
       try {
+        let contactId;
         if (isEdit) {
           await Contacts.update(contact.id, data);
+          contactId = contact.id;
           this.toast('Contact updated');
         } else {
           const newContact = await Contacts.create(data);
+          contactId = newContact.id;
           // If we're viewing a group, add to that group
           if (this.state.currentGroupId) {
             await Contacts.addToGroup(newContact.id, this.state.currentGroupId);
           }
           this.toast('Contact added');
         }
+
+        // Save custom field values
+        const cfInputs = overlay.querySelectorAll('.custom-field-input');
+        if (cfInputs.length > 0) {
+          const existingValues = isEdit ? await Fields.getValuesForContact(contactId).catch(() => []) : [];
+          const existingMap = {};
+          existingValues.forEach(fv => { existingMap[fv.custom_field_id] = fv.value; });
+
+          const promises = [];
+          cfInputs.forEach(input => {
+            const fieldId = input.dataset.fieldId;
+            const value = input.value.trim();
+            if (value) {
+              promises.push(Fields.setValueForContact(contactId, fieldId, value));
+            } else if (isEdit && existingMap[fieldId]) {
+              promises.push(Fields.deleteValueForContact(contactId, fieldId));
+            }
+          });
+          if (promises.length > 0) await Promise.all(promises);
+        }
+
         this.closeModal(overlay);
         await this.loadData();
         this.render();
