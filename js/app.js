@@ -14,8 +14,11 @@ const App = {
     isDragging: false,
     visibleColumns: new Set(['name', 'email', 'company', 'last_interaction', 'goal_status', 'notes']),
     contactFieldValues: {}, // { contactId: { fieldId: value } }
-    lastInteractions: {} // { contactId: { type, interaction_date } }
+    lastInteractions: {}, // { contactId: { type, interaction_date } }
+    profileSectionOrder: null
   },
+
+  DEFAULT_SECTION_ORDER: ['groups', 'keep_in_touch', 'notes', 'custom_fields', 'interactions', 'reminders'],
 
   // ── Init ──────────────────────────────────────────
   async init() {
@@ -166,7 +169,8 @@ const App = {
         Fields.list().catch(err => {
           console.warn('Custom fields not available:', err.message);
           return [];
-        })
+        }),
+        this.loadUserPreferences()
       ]);
       this.state.groups = groups;
       this.state.customFields = customFields;
@@ -191,6 +195,38 @@ const App = {
       }
     } catch (err) {
       this.toast('Failed to load contacts: ' + err.message, 'error');
+    }
+  },
+
+  async loadUserPreferences() {
+    try {
+      const { data } = await supabase
+        .from('user_preferences')
+        .select('value')
+        .eq('key', 'profile_section_order')
+        .maybeSingle();
+      if (data && Array.isArray(data.value)) {
+        this.state.profileSectionOrder = data.value;
+      }
+    } catch (err) {
+      console.warn('Could not load user preferences:', err.message);
+    }
+  },
+
+  async saveProfileSectionOrder(order) {
+    this.state.profileSectionOrder = order;
+    try {
+      const user = await Auth.getUser();
+      if (!user) return;
+      await supabase
+        .from('user_preferences')
+        .upsert({
+          user_id: user.id,
+          key: 'profile_section_order',
+          value: order
+        }, { onConflict: 'user_id,key' });
+    } catch (err) {
+      console.warn('Could not save section order:', err.message);
     }
   },
 
@@ -765,126 +801,8 @@ const App = {
           </div>
           ` : ''}
 
-          <div class="profile-grid">
-            <!-- Groups -->
-            <div class="profile-section">
-              <div class="profile-section-header">
-                <div class="profile-section-title">Groups</div>
-                <button class="btn btn-ghost btn-sm" id="profile-add-group-btn">+ Add</button>
-              </div>
-              <div class="group-tags" id="profile-groups">
-                ${groups.length > 0 ? groups.map(g => `
-                  <span class="group-tag" data-group-id="${g.id}">
-                    ${g.emoji} ${this.esc(g.name)}
-                    <span class="group-tag-remove" data-group-id="${g.id}">&times;</span>
-                  </span>
-                `).join('') : '<span class="text-tertiary text-sm">No groups</span>'}
-              </div>
-            </div>
-
-            <!-- Keep in Touch -->
-            <div class="profile-section">
-              <div class="profile-section-header">
-                <div class="profile-section-title">Keep in Touch</div>
-                <button class="btn btn-ghost btn-sm" id="profile-kit-btn">Set Goal</button>
-              </div>
-              <div id="profile-kit-status">
-                ${this.renderProfileKitStatus(contact)}
-              </div>
-            </div>
-
-            <!-- Notes -->
-            <div class="profile-section full-width">
-              <div class="profile-section-header">
-                <div class="profile-section-title">Notes</div>
-                <button class="btn btn-ghost btn-sm" id="profile-edit-notes-btn">Edit</button>
-              </div>
-              <div class="text-secondary" style="white-space: pre-wrap; font-size: var(--font-size-sm);">${contact.notes ? this.esc(contact.notes) : '<em class="text-tertiary">No notes</em>'}</div>
-            </div>
-
-            <!-- Custom Fields -->
-            ${allFields.length > 0 ? `
-              <div class="profile-section full-width">
-                <div class="profile-section-header">
-                  <div class="profile-section-title">Custom Fields</div>
-                </div>
-                ${allFields.map(f => `
-                  <div class="detail-row">
-                    <span class="detail-label">${this.esc(f.name)}</span>
-                    <span class="detail-value ${fieldMap[f.id] ? '' : 'empty'}"
-                          data-field-id="${f.id}"
-                          data-field-type="${f.field_type}"
-                          data-field-options='${JSON.stringify(f.options || [])}'
-                          style="cursor:pointer"
-                          title="Click to edit">
-                      ${this.esc(fieldMap[f.id] || 'Not set')}
-                    </span>
-                  </div>
-                `).join('')}
-              </div>
-            ` : ''}
-
-            <!-- Interactions -->
-            <div class="profile-section full-width">
-              <div class="profile-section-header">
-                <div class="profile-section-title">Interactions</div>
-                <button class="btn btn-primary btn-sm" id="profile-add-interaction-btn">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                  Log Interaction
-                </button>
-              </div>
-              <div class="timeline" id="profile-interactions">
-                ${interactions.length > 0 ? interactions.map(i => `
-                  <div class="timeline-item" data-interaction-id="${i.id}">
-                    <div class="timeline-icon ${i.type}">${Interactions.TYPE_ICONS[i.type] || '📝'}</div>
-                    <div class="timeline-content">
-                      <div class="timeline-header">
-                        <span class="timeline-type">${this.esc(i.type)}</span>
-                        <span class="timeline-date">${Interactions.formatFullDate(i.interaction_date)}</span>
-                      </div>
-                      ${i.notes ? `<div class="timeline-notes">${this.esc(i.notes)}</div>` : ''}
-                    </div>
-                    <div class="timeline-actions">
-                      <button class="btn-icon interaction-delete" data-id="${i.id}" title="Delete">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                      </button>
-                    </div>
-                  </div>
-                `).join('') : '<div class="text-tertiary text-sm" style="padding: 12px 0">No interactions logged yet</div>'}
-              </div>
-            </div>
-
-            <!-- Reminders -->
-            <div class="profile-section full-width">
-              <div class="profile-section-header">
-                <div class="profile-section-title">Reminders</div>
-                <button class="btn btn-ghost btn-sm" id="profile-add-reminder-btn">+ Add</button>
-              </div>
-              <div id="profile-reminders">
-                ${reminders.length > 0 ? reminders.map(r => `
-                  <div class="reminder-item ${r.completed ? 'completed' : ''}" data-reminder-id="${r.id}">
-                    <div class="reminder-checkbox ${r.completed ? 'completed' : ''}" data-id="${r.id}">
-                      ${r.completed ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
-                    </div>
-                    <div class="reminder-content">
-                      <div class="reminder-title">${this.esc(r.title)}</div>
-                      <div class="reminder-due ${Reminders.isOverdue(r) ? 'overdue' : ''}">${Reminders.formatDueDate(r.due_date)}</div>
-                      ${r.is_recurring ? `<div class="reminder-recurring">Repeats every ${r.recurrence_interval}d</div>` : ''}
-                    </div>
-                    <div class="reminder-actions">
-                      ${!r.completed ? `
-                        <button class="btn-icon reminder-reschedule" data-id="${r.id}" title="Reschedule">
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                        </button>
-                      ` : ''}
-                      <button class="btn-icon reminder-delete" data-id="${r.id}" title="Delete">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                      </button>
-                    </div>
-                  </div>
-                `).join('') : '<div class="text-tertiary text-sm" style="padding: 12px 0">No reminders</div>'}
-              </div>
-            </div>
+          <div class="profile-grid" id="profile-grid">
+            ${this.renderProfileSections(contact, groups, allFields, fieldMap, interactions, reminders)}
           </div>
         </div>
       `;
@@ -894,6 +812,282 @@ const App = {
     } catch (err) {
       this.mainBody.innerHTML = `<div class="empty-state"><div class="empty-state-title">Error loading contact</div><div class="empty-state-text">${this.esc(err.message)}</div></div>`;
     }
+  },
+
+  getSectionRegistry(contact, groups, allFields, fieldMap, interactions, reminders) {
+    const registry = {};
+
+    registry.groups = {
+      widthClass: '',
+      html: `
+        <div class="profile-section-header">
+          <div class="profile-section-title">Groups</div>
+          <button class="btn btn-ghost btn-sm" id="profile-add-group-btn">+ Add</button>
+        </div>
+        <div class="group-tags" id="profile-groups">
+          ${groups.length > 0 ? groups.map(g => `
+            <span class="group-tag" data-group-id="${g.id}">
+              ${g.emoji} ${this.esc(g.name)}
+              <span class="group-tag-remove" data-group-id="${g.id}">&times;</span>
+            </span>
+          `).join('') : '<span class="text-tertiary text-sm">No groups</span>'}
+        </div>
+      `
+    };
+
+    registry.keep_in_touch = {
+      widthClass: '',
+      html: `
+        <div class="profile-section-header">
+          <div class="profile-section-title">Keep in Touch</div>
+          <button class="btn btn-ghost btn-sm" id="profile-kit-btn">Set Goal</button>
+        </div>
+        <div id="profile-kit-status">
+          ${this.renderProfileKitStatus(contact)}
+        </div>
+      `
+    };
+
+    registry.notes = {
+      widthClass: 'full-width',
+      html: `
+        <div class="profile-section-header">
+          <div class="profile-section-title">Notes</div>
+          <button class="btn btn-ghost btn-sm" id="profile-edit-notes-btn">Edit</button>
+        </div>
+        <div class="text-secondary" style="white-space: pre-wrap; font-size: var(--font-size-sm);">${contact.notes ? this.esc(contact.notes) : '<em class="text-tertiary">No notes</em>'}</div>
+      `
+    };
+
+    if (allFields.length > 0) {
+      registry.custom_fields = {
+        widthClass: 'full-width',
+        html: `
+          <div class="profile-section-header">
+            <div class="profile-section-title">Custom Fields</div>
+          </div>
+          ${allFields.map(f => `
+            <div class="detail-row">
+              <span class="detail-label">${this.esc(f.name)}</span>
+              <span class="detail-value ${fieldMap[f.id] ? '' : 'empty'}"
+                    data-field-id="${f.id}"
+                    data-field-type="${f.field_type}"
+                    data-field-options='${JSON.stringify(f.options || [])}'
+                    style="cursor:pointer"
+                    title="Click to edit">
+                ${this.esc(fieldMap[f.id] || 'Not set')}
+              </span>
+            </div>
+          `).join('')}
+        `
+      };
+    }
+
+    registry.interactions = {
+      widthClass: 'full-width',
+      html: `
+        <div class="profile-section-header">
+          <div class="profile-section-title">Interactions</div>
+          <button class="btn btn-primary btn-sm" id="profile-add-interaction-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Log Interaction
+          </button>
+        </div>
+        <div class="timeline" id="profile-interactions">
+          ${interactions.length > 0 ? interactions.map(i => `
+            <div class="timeline-item" data-interaction-id="${i.id}">
+              <div class="timeline-icon ${i.type}">${Interactions.TYPE_ICONS[i.type] || '📝'}</div>
+              <div class="timeline-content">
+                <div class="timeline-header">
+                  <span class="timeline-type">${this.esc(i.type)}</span>
+                  <span class="timeline-date">${Interactions.formatFullDate(i.interaction_date)}</span>
+                </div>
+                ${i.notes ? `<div class="timeline-notes">${this.esc(i.notes)}</div>` : ''}
+              </div>
+              <div class="timeline-actions">
+                <button class="btn-icon interaction-delete" data-id="${i.id}" title="Delete">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                </button>
+              </div>
+            </div>
+          `).join('') : '<div class="text-tertiary text-sm" style="padding: 12px 0">No interactions logged yet</div>'}
+        </div>
+      `
+    };
+
+    registry.reminders = {
+      widthClass: 'full-width',
+      html: `
+        <div class="profile-section-header">
+          <div class="profile-section-title">Reminders</div>
+          <button class="btn btn-ghost btn-sm" id="profile-add-reminder-btn">+ Add</button>
+        </div>
+        <div id="profile-reminders">
+          ${reminders.length > 0 ? reminders.map(r => `
+            <div class="reminder-item ${r.completed ? 'completed' : ''}" data-reminder-id="${r.id}">
+              <div class="reminder-checkbox ${r.completed ? 'completed' : ''}" data-id="${r.id}">
+                ${r.completed ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
+              </div>
+              <div class="reminder-content">
+                <div class="reminder-title">${this.esc(r.title)}</div>
+                <div class="reminder-due ${Reminders.isOverdue(r) ? 'overdue' : ''}">${Reminders.formatDueDate(r.due_date)}</div>
+                ${r.is_recurring ? `<div class="reminder-recurring">Repeats every ${r.recurrence_interval}d</div>` : ''}
+              </div>
+              <div class="reminder-actions">
+                ${!r.completed ? `
+                  <button class="btn-icon reminder-reschedule" data-id="${r.id}" title="Reschedule">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                  </button>
+                ` : ''}
+                <button class="btn-icon reminder-delete" data-id="${r.id}" title="Delete">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </div>
+            </div>
+          `).join('') : '<div class="text-tertiary text-sm" style="padding: 12px 0">No reminders</div>'}
+        </div>
+      `
+    };
+
+    return registry;
+  },
+
+  renderProfileSections(contact, groups, allFields, fieldMap, interactions, reminders) {
+    const registry = this.getSectionRegistry(contact, groups, allFields, fieldMap, interactions, reminders);
+    const savedOrder = this.state.profileSectionOrder || this.DEFAULT_SECTION_ORDER;
+
+    // Filter to keys that exist in registry, then append any new keys not in saved order
+    const order = savedOrder.filter(k => registry[k]);
+    Object.keys(registry).forEach(k => {
+      if (!order.includes(k)) order.push(k);
+    });
+
+    const gripIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="5" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="19" r="1"/></svg>';
+
+    return order.map((key, idx) => {
+      const section = registry[key];
+      const isFirst = idx === 0;
+      const isLast = idx === order.length - 1;
+      return `
+        <div class="profile-section ${section.widthClass}" data-section-key="${key}" draggable="false">
+          <div class="section-drag-handle" draggable="true" title="Drag to reorder">${gripIcon}</div>
+          <div class="section-mobile-reorder">
+            <button class="section-move-btn" data-dir="up" ${isFirst ? 'disabled' : ''} title="Move up">&#9650;</button>
+            <button class="section-move-btn" data-dir="down" ${isLast ? 'disabled' : ''} title="Move down">&#9660;</button>
+          </div>
+          ${section.html}
+        </div>
+      `;
+    }).join('');
+  },
+
+  bindSectionDragEvents() {
+    const grid = document.getElementById('profile-grid');
+    if (!grid) return;
+
+    let draggedEl = null;
+    let placeholder = null;
+
+    const getSectionOrder = () => {
+      return Array.from(grid.querySelectorAll('.profile-section[data-section-key]'))
+        .map(el => el.dataset.sectionKey);
+    };
+
+    // Desktop: HTML5 Drag and Drop via handles
+    grid.querySelectorAll('.section-drag-handle').forEach(handle => {
+      handle.addEventListener('dragstart', (e) => {
+        draggedEl = handle.closest('.profile-section[data-section-key]');
+        if (!draggedEl) return;
+        draggedEl.classList.add('section-dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', draggedEl.dataset.sectionKey);
+
+        // Create placeholder
+        placeholder = document.createElement('div');
+        placeholder.className = 'section-drop-placeholder';
+        if (draggedEl.classList.contains('full-width')) {
+          placeholder.classList.add('full-width');
+        }
+
+        // Small delay so the drag image captures correctly
+        requestAnimationFrame(() => {
+          if (draggedEl) draggedEl.style.display = 'none';
+          if (placeholder && draggedEl) {
+            grid.insertBefore(placeholder, draggedEl);
+          }
+        });
+      });
+
+      handle.addEventListener('dragend', () => {
+        if (draggedEl) {
+          draggedEl.classList.remove('section-dragging');
+          draggedEl.style.display = '';
+        }
+        if (placeholder && placeholder.parentNode) {
+          if (draggedEl) {
+            grid.insertBefore(draggedEl, placeholder);
+          }
+          placeholder.remove();
+        }
+        placeholder = null;
+        draggedEl = null;
+
+        this.saveProfileSectionOrder(getSectionOrder());
+      });
+    });
+
+    grid.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      if (!placeholder) return;
+
+      const target = e.target.closest('.profile-section[data-section-key]');
+      if (!target || target === draggedEl) return;
+
+      const rect = target.getBoundingClientRect();
+      const midY = rect.top + rect.height / 2;
+
+      if (e.clientY < midY) {
+        grid.insertBefore(placeholder, target);
+      } else {
+        grid.insertBefore(placeholder, target.nextSibling);
+      }
+    });
+
+    grid.addEventListener('drop', (e) => {
+      e.preventDefault();
+    });
+
+    // Mobile: Up/Down arrow buttons
+    grid.querySelectorAll('.section-move-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const section = btn.closest('.profile-section[data-section-key]');
+        if (!section) return;
+
+        const dir = btn.dataset.dir;
+        const sections = Array.from(grid.querySelectorAll('.profile-section[data-section-key]'));
+        const idx = sections.indexOf(section);
+
+        if (dir === 'up' && idx > 0) {
+          grid.insertBefore(section, sections[idx - 1]);
+        } else if (dir === 'down' && idx < sections.length - 1) {
+          const next = sections[idx + 1];
+          grid.insertBefore(section, next.nextSibling);
+        }
+
+        // Update all up/down button disabled states
+        const updated = Array.from(grid.querySelectorAll('.profile-section[data-section-key]'));
+        updated.forEach((el, i) => {
+          const upBtn = el.querySelector('.section-move-btn[data-dir="up"]');
+          const downBtn = el.querySelector('.section-move-btn[data-dir="down"]');
+          if (upBtn) upBtn.disabled = i === 0;
+          if (downBtn) downBtn.disabled = i === updated.length - 1;
+        });
+
+        this.saveProfileSectionOrder(getSectionOrder());
+      });
+    });
   },
 
   renderProfileKitStatus(contact) {
@@ -1043,6 +1237,9 @@ const App = {
         }
       });
     });
+
+    // Section drag/reorder
+    this.bindSectionDragEvents();
   },
 
   async refreshProfile() {

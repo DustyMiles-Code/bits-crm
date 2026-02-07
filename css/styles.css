@@ -1091,6 +1091,104 @@ a:hover { color: var(--accent-hover); }
   font-weight: 600;
 }
 
+/* Draggable Profile Sections */
+.profile-section[data-section-key] {
+  position: relative;
+}
+
+.section-drag-handle {
+  position: absolute;
+  top: var(--sp-3);
+  right: var(--sp-3);
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  color: var(--text-tertiary);
+  border-radius: var(--radius-sm);
+  opacity: 0;
+  transition: var(--transition-fast);
+  z-index: 2;
+  background: var(--bg);
+}
+
+.profile-section[data-section-key]:hover .section-drag-handle {
+  opacity: 1;
+}
+
+.section-drag-handle:hover {
+  color: var(--text);
+  background: var(--bg-secondary);
+}
+
+.section-drag-handle:active {
+  cursor: grabbing;
+}
+
+.section-mobile-reorder {
+  display: none;
+}
+
+.profile-section.section-dragging {
+  opacity: 0.4;
+  border-style: dashed;
+}
+
+.section-drop-placeholder {
+  border: 2px dashed var(--accent);
+  background: var(--accent-light);
+  border-radius: var(--radius-lg);
+  min-height: 60px;
+  transition: var(--transition-fast);
+}
+
+.section-drop-placeholder.full-width {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 768px) {
+  .section-drag-handle {
+    display: none;
+  }
+
+  .section-mobile-reorder {
+    display: flex;
+    position: absolute;
+    top: var(--sp-3);
+    right: var(--sp-3);
+    gap: var(--sp-1);
+    z-index: 2;
+  }
+
+  .section-move-btn {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text-secondary);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    padding: 0;
+    font-size: var(--font-size-sm);
+    transition: var(--transition-fast);
+  }
+
+  .section-move-btn:hover {
+    background: var(--bg-secondary);
+    color: var(--text);
+  }
+
+  .section-move-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+}
+
 /* Detail rows */
 .detail-row {
   display: flex;

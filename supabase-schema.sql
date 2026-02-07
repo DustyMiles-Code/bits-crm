@@ -276,7 +276,40 @@ CREATE TRIGGER on_interaction_insert
   FOR EACH ROW EXECUTE FUNCTION update_kit_on_interaction();
 
 -- ============================================
+-- USER PREFERENCES
+-- ============================================
+CREATE TABLE user_preferences (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  key TEXT NOT NULL,
+  value JSONB NOT NULL DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id, key)
+);
+
+CREATE INDEX idx_user_preferences_user_id ON user_preferences(user_id);
+
+ALTER TABLE user_preferences ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view own preferences"
+  ON user_preferences FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own preferences"
+  ON user_preferences FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own preferences"
+  ON user_preferences FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete own preferences"
+  ON user_preferences FOR DELETE USING (auth.uid() = user_id);
+
+CREATE TRIGGER user_preferences_updated_at
+  BEFORE UPDATE ON user_preferences
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- ============================================
 -- MIGRATIONS (run manually in Supabase SQL Editor)
 -- ============================================
 -- Add bio column to contacts (if upgrading from previous schema):
 -- ALTER TABLE contacts ADD COLUMN IF NOT EXISTS bio TEXT;
+--
+-- Add user_preferences table (if upgrading from previous schema):
+-- Run the user_preferences CREATE TABLE block above in Supabase SQL Editor.
