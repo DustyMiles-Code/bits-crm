@@ -13,7 +13,8 @@ const App = {
     selectedContactIds: new Set(),
     isDragging: false,
     visibleColumns: new Set(['name', 'email', 'company', 'last_interaction', 'goal_status', 'notes']),
-    contactFieldValues: {} // { contactId: { fieldId: value } }
+    contactFieldValues: {}, // { contactId: { fieldId: value } }
+    lastInteractions: {} // { contactId: { type, interaction_date } }
   },
 
   // ── Init ──────────────────────────────────────────
@@ -156,7 +157,7 @@ const App = {
       this.state.groups = groups;
       this.state.customFields = customFields;
       await this.loadContacts();
-      await this.loadFieldValues();
+      await Promise.all([this.loadFieldValues(), this.loadLastInteractions()]);
       this.setUserInfo();
     } catch (err) {
       this.toast('Failed to load data: ' + err.message, 'error');
@@ -614,8 +615,10 @@ const App = {
   },
 
   renderLastInteraction(contact) {
-    // We'll show placeholder — full data loaded on profile
-    return `<span class="text-secondary text-sm">—</span>`;
+    const li = this.state.lastInteractions[contact.id];
+    if (!li) return `<span class="text-tertiary text-sm">—</span>`;
+    const icon = Interactions.TYPE_ICONS[li.type] || '📝';
+    return `<span class="text-sm">${icon} ${Interactions.formatDate(li.interaction_date)}</span>`;
   },
 
   renderKitStatus(contact) {
@@ -961,7 +964,7 @@ const App = {
   },
 
   async refreshProfile() {
-    await Promise.all([this.loadGroups(), this.loadContacts(), this.loadCustomFields(), this.loadFieldValues()]);
+    await Promise.all([this.loadGroups(), this.loadContacts(), this.loadCustomFields(), this.loadFieldValues(), this.loadLastInteractions()]);
     this.renderSidebar();
     this.renderProfile();
   },
@@ -986,6 +989,15 @@ const App = {
     } catch (err) {
       console.warn('Failed to load field values:', err);
       this.state.contactFieldValues = {};
+    }
+  },
+
+  async loadLastInteractions() {
+    try {
+      this.state.lastInteractions = await Interactions.getLastInteractions();
+    } catch (err) {
+      console.warn('Failed to load last interactions:', err);
+      this.state.lastInteractions = {};
     }
   },
 
@@ -2071,7 +2083,7 @@ const App = {
         <button class="modal-close">&times;</button>
       </div>
       <div class="modal-body">
-        <div class="export-options">
+        <div class="export-options" id="export-format-step">
           <button class="export-option" data-format="vcard">
             <div class="export-option-icon">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
@@ -2091,24 +2103,80 @@ const App = {
             </div>
           </button>
         </div>
+        <div class="export-fields-step" id="export-fields-step" hidden>
+          <div class="export-fields-header">
+            <button class="export-back-btn" id="export-back-btn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+              Back
+            </button>
+            <div class="export-fields-actions">
+              <button class="btn-link text-sm" id="export-select-all">Select All</button>
+              <span class="text-tertiary text-sm">/</span>
+              <button class="btn-link text-sm" id="export-select-none">None</button>
+            </div>
+          </div>
+          <div class="export-fields-list" id="export-fields-list">
+            ${ImportExport.CSV_FIELDS.map(f => `
+              <label class="export-field-item">
+                <input type="checkbox" value="${f.key}" ${ImportExport.CSV_DEFAULT_FIELDS.includes(f.key) ? 'checked' : ''}>
+                <span>${this.esc(f.label)}</span>
+              </label>
+            `).join('')}
+          </div>
+          <button class="btn btn-primary btn-block" id="export-csv-btn">Export CSV</button>
+        </div>
       </div>
     `;
 
     const overlay = this.showModal(html);
-    overlay.querySelectorAll('.export-option').forEach(btn => {
-      btn.addEventListener('click', () => {
-        try {
-          if (btn.dataset.format === 'vcard') {
-            ImportExport.exportAsVCard(contacts);
-          } else {
-            ImportExport.exportContacts(contacts);
-          }
-          this.toast(`Exported ${contacts.length} contact${contacts.length > 1 ? 's' : ''}`);
-          this.closeModal(overlay);
-        } catch (err) {
-          this.toast(err.message, 'error');
-        }
-      });
+    const formatStep = overlay.querySelector('#export-format-step');
+    const fieldsStep = overlay.querySelector('#export-fields-step');
+
+    // vCard: export immediately
+    overlay.querySelector('[data-format="vcard"]').addEventListener('click', () => {
+      try {
+        ImportExport.exportAsVCard(contacts);
+        this.toast(`Exported ${contacts.length} contact${contacts.length > 1 ? 's' : ''}`);
+        this.closeModal(overlay);
+      } catch (err) {
+        this.toast(err.message, 'error');
+      }
+    });
+
+    // CSV: show field picker
+    overlay.querySelector('[data-format="csv"]').addEventListener('click', () => {
+      formatStep.hidden = true;
+      fieldsStep.hidden = false;
+    });
+
+    // Back button
+    overlay.querySelector('#export-back-btn').addEventListener('click', () => {
+      fieldsStep.hidden = true;
+      formatStep.hidden = false;
+    });
+
+    // Select All / None
+    overlay.querySelector('#export-select-all').addEventListener('click', () => {
+      fieldsStep.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = true);
+    });
+    overlay.querySelector('#export-select-none').addEventListener('click', () => {
+      fieldsStep.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+    });
+
+    // Export CSV with selected fields
+    overlay.querySelector('#export-csv-btn').addEventListener('click', () => {
+      const selected = [...fieldsStep.querySelectorAll('input[type="checkbox"]:checked')].map(cb => cb.value);
+      if (selected.length === 0) {
+        this.toast('Select at least one field', 'error');
+        return;
+      }
+      try {
+        ImportExport.exportContacts(contacts, selected);
+        this.toast(`Exported ${contacts.length} contact${contacts.length > 1 ? 's' : ''}`);
+        this.closeModal(overlay);
+      } catch (err) {
+        this.toast(err.message, 'error');
+      }
     });
   },
 

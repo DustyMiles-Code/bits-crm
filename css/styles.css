@@ -397,6 +397,20 @@ a:hover { color: var(--accent-hover); }
   width: 100%;
 }
 
+.btn-link {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-family: var(--font);
+  cursor: pointer;
+  padding: 0;
+  font-weight: 500;
+}
+
+.btn-link:hover {
+  text-decoration: underline;
+}
+
 .btn-icon {
   padding: var(--sp-2);
   border: none;
@@ -1910,6 +1924,64 @@ a:hover { color: var(--accent-hover); }
 .export-option-desc {
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
+}
+
+.export-fields-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--sp-3);
+}
+
+.export-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-family: var(--font);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  cursor: pointer;
+  padding: var(--sp-1) var(--sp-2);
+  margin-left: calc(-1 * var(--sp-2));
+  border-radius: var(--radius);
+}
+
+.export-back-btn:hover {
+  background: var(--accent-light);
+}
+
+.export-fields-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.export-fields-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-1);
+  margin-bottom: var(--sp-4);
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.export-field-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  color: var(--text);
+  transition: var(--transition-fast);
+}
+
+.export-field-item:hover {
+  background: var(--bg-secondary);
 }
 
 /* ============================================

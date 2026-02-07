@@ -51,6 +51,21 @@ const Interactions = {
     if (error) throw error;
   },
 
+  async getLastInteractions() {
+    // Get the most recent interaction per contact using a single query
+    const { data, error } = await supabase
+      .from('interactions')
+      .select('contact_id, type, interaction_date')
+      .order('interaction_date', { ascending: false });
+    if (error) throw error;
+    // Deduplicate: keep only the first (most recent) per contact
+    const map = {};
+    (data || []).forEach(row => {
+      if (!map[row.contact_id]) map[row.contact_id] = row;
+    });
+    return map;
+  },
+
   async getLastInteraction(contactId) {
     const { data, error } = await supabase
       .from('interactions')

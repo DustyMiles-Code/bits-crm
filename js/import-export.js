@@ -1,22 +1,33 @@
 // Import/Export Module
 const ImportExport = {
+  // CSV field definitions
+  CSV_FIELDS: [
+    { key: 'first_name', label: 'First Name', get: c => c.first_name || '' },
+    { key: 'last_name', label: 'Last Name', get: c => c.last_name || '' },
+    { key: 'email', label: 'Email', get: c => Contacts.getPrimaryEmail(c) || '' },
+    { key: 'phone', label: 'Phone', get: c => Contacts.getPrimaryPhone(c) || '' },
+    { key: 'company', label: 'Company', get: c => c.company || '' },
+    { key: 'title', label: 'Title', get: c => c.title || '' },
+    { key: 'birthday', label: 'Birthday', get: c => c.birthday || '' },
+    { key: 'notes', label: 'Notes', get: c => c.notes || '' },
+    { key: 'all_emails', label: 'All Emails', get: c => Contacts.getEmails(c).map(e => e.value).join('; ') },
+    { key: 'all_phones', label: 'All Phones', get: c => Contacts.getPhones(c).map(p => p.value).join('; ') }
+  ],
+
+  CSV_DEFAULT_FIELDS: ['first_name', 'last_name', 'email', 'phone', 'company', 'title', 'birthday', 'notes'],
+
   // CSV Export
-  async exportContacts(contacts) {
+  exportContacts(contacts, selectedFieldKeys = null) {
     if (!contacts || contacts.length === 0) {
       throw new Error('No contacts to export');
     }
 
-    const headers = ['First Name', 'Last Name', 'Email', 'Phone', 'Company', 'Title', 'Birthday', 'Notes'];
-    const rows = contacts.map(c => [
-      c.first_name || '',
-      c.last_name || '',
-      Contacts.getPrimaryEmail(c) || '',
-      Contacts.getPrimaryPhone(c) || '',
-      c.company || '',
-      c.title || '',
-      c.birthday || '',
-      c.notes || ''
-    ]);
+    const fields = selectedFieldKeys
+      ? this.CSV_FIELDS.filter(f => selectedFieldKeys.includes(f.key))
+      : this.CSV_FIELDS.filter(f => this.CSV_DEFAULT_FIELDS.includes(f.key));
+
+    const headers = fields.map(f => f.label);
+    const rows = contacts.map(c => fields.map(f => f.get(c)));
 
     const csv = [headers, ...rows]
       .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
