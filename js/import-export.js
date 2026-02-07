@@ -16,6 +16,79 @@ const ImportExport = {
 
   CSV_DEFAULT_FIELDS: ['first_name', 'last_name', 'email', 'phone', 'company', 'title', 'birthday', 'notes'],
 
+  // Interaction export field definitions
+  INTERACTION_FIELDS: [
+    { key: 'contact_name', label: 'Contact Name', get: (row) => row._contactName || '' },
+    { key: 'type', label: 'Type', get: (row) => row.type || '' },
+    { key: 'interaction_date', label: 'Date', get: (row) => row.interaction_date ? new Date(row.interaction_date).toLocaleString() : '' },
+    { key: 'notes', label: 'Notes', get: (row) => row.notes || '' },
+    { key: 'contact_email', label: 'Contact Email', get: (row) => row._contactEmail || '' },
+    { key: 'contact_company', label: 'Contact Company', get: (row) => row._contactCompany || '' }
+  ],
+
+  INTERACTION_DEFAULT_FIELDS: ['contact_name', 'type', 'interaction_date', 'notes'],
+
+  // Interaction Export
+  async exportInteractions(contacts, selectedFieldKeys = null) {
+    if (!contacts || contacts.length === 0) {
+      throw new Error('No contacts to export');
+    }
+
+    // Build contact lookup
+    const contactMap = {};
+    contacts.forEach(c => {
+      contactMap[c.id] = c;
+    });
+
+    // Fetch all interactions for these contacts
+    const contactIds = contacts.map(c => c.id);
+    const { data, error } = await supabase
+      .from('interactions')
+      .select('*')
+      .in('contact_id', contactIds)
+      .order('interaction_date', { ascending: false });
+    if (error) throw error;
+
+    if (!data || data.length === 0) {
+      throw new Error('No interactions to export');
+    }
+
+    // Enrich rows with contact info
+    const rows = data.map(row => {
+      const c = contactMap[row.contact_id];
+      return {
+        ...row,
+        _contactName: c ? [c.first_name, c.last_name].filter(Boolean).join(' ') : '',
+        _contactEmail: c ? (Contacts.getPrimaryEmail(c) || '') : '',
+        _contactCompany: c ? (c.company || '') : ''
+      };
+    });
+
+    const fields = selectedFieldKeys
+      ? this.INTERACTION_FIELDS.filter(f => selectedFieldKeys.includes(f.key))
+      : this.INTERACTION_FIELDS.filter(f => this.INTERACTION_DEFAULT_FIELDS.includes(f.key));
+
+    const headers = fields.map(f => f.label);
+    const csvRows = rows.map(r => fields.map(f => f.get(r)));
+
+    const csv = [headers, ...csvRows]
+      .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    const filename = contacts.length === 1
+      ? `${[contacts[0].first_name, contacts[0].last_name].filter(Boolean).join('-').toLowerCase() || 'contact'}-interactions.csv`
+      : `crm-interactions-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+
+    return rows.length;
+  },
+
   // CSV Export
   exportContacts(contacts, selectedFieldKeys = null) {
     if (!contacts || contacts.length === 0) {

@@ -2077,6 +2077,30 @@ const App = {
   },
 
   showExportModal(contacts, label) {
+    const backArrow = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>';
+
+    const buildFieldsStep = (id, fields, defaults, exportBtnLabel) => `
+      <div class="export-fields-step" id="${id}" hidden>
+        <div class="export-fields-header">
+          <button class="export-back-btn" data-back>${backArrow} Back</button>
+          <div class="export-fields-actions">
+            <button class="btn-link text-sm" data-select-all>Select All</button>
+            <span class="text-tertiary text-sm">/</span>
+            <button class="btn-link text-sm" data-select-none>None</button>
+          </div>
+        </div>
+        <div class="export-fields-list">
+          ${fields.map(f => `
+            <label class="export-field-item">
+              <input type="checkbox" value="${f.key}" ${defaults.includes(f.key) ? 'checked' : ''}>
+              <span>${this.esc(f.label)}</span>
+            </label>
+          `).join('')}
+        </div>
+        <button class="btn btn-primary btn-block" data-export>${exportBtnLabel}</button>
+      </div>
+    `;
+
     const html = `
       <div class="modal-header">
         <div class="modal-title">Export ${this.esc(label)}</div>
@@ -2098,39 +2122,36 @@ const App = {
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
             </div>
             <div>
-              <div class="export-option-title">CSV (.csv)</div>
+              <div class="export-option-title">Contacts CSV (.csv)</div>
               <div class="export-option-desc">For Excel, Google Sheets, spreadsheets</div>
             </div>
           </button>
-        </div>
-        <div class="export-fields-step" id="export-fields-step" hidden>
-          <div class="export-fields-header">
-            <button class="export-back-btn" id="export-back-btn">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-              Back
-            </button>
-            <div class="export-fields-actions">
-              <button class="btn-link text-sm" id="export-select-all">Select All</button>
-              <span class="text-tertiary text-sm">/</span>
-              <button class="btn-link text-sm" id="export-select-none">None</button>
+          <button class="export-option" data-format="interactions">
+            <div class="export-option-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
             </div>
-          </div>
-          <div class="export-fields-list" id="export-fields-list">
-            ${ImportExport.CSV_FIELDS.map(f => `
-              <label class="export-field-item">
-                <input type="checkbox" value="${f.key}" ${ImportExport.CSV_DEFAULT_FIELDS.includes(f.key) ? 'checked' : ''}>
-                <span>${this.esc(f.label)}</span>
-              </label>
-            `).join('')}
-          </div>
-          <button class="btn btn-primary btn-block" id="export-csv-btn">Export CSV</button>
+            <div>
+              <div class="export-option-title">Interactions CSV (.csv)</div>
+              <div class="export-option-desc">Export call, email, meeting, and text logs</div>
+            </div>
+          </button>
         </div>
+        ${buildFieldsStep('export-csv-fields', ImportExport.CSV_FIELDS, ImportExport.CSV_DEFAULT_FIELDS, 'Export Contacts CSV')}
+        ${buildFieldsStep('export-int-fields', ImportExport.INTERACTION_FIELDS, ImportExport.INTERACTION_DEFAULT_FIELDS, 'Export Interactions CSV')}
       </div>
     `;
 
     const overlay = this.showModal(html);
     const formatStep = overlay.querySelector('#export-format-step');
-    const fieldsStep = overlay.querySelector('#export-fields-step');
+    const csvFieldsStep = overlay.querySelector('#export-csv-fields');
+    const intFieldsStep = overlay.querySelector('#export-int-fields');
+
+    const showStep = (step) => {
+      formatStep.hidden = true;
+      csvFieldsStep.hidden = true;
+      intFieldsStep.hidden = true;
+      step.hidden = false;
+    };
 
     // vCard: export immediately
     overlay.querySelector('[data-format="vcard"]').addEventListener('click', () => {
@@ -2143,39 +2164,51 @@ const App = {
       }
     });
 
-    // CSV: show field picker
-    overlay.querySelector('[data-format="csv"]').addEventListener('click', () => {
-      formatStep.hidden = true;
-      fieldsStep.hidden = false;
+    // CSV: show contact field picker
+    overlay.querySelector('[data-format="csv"]').addEventListener('click', () => showStep(csvFieldsStep));
+
+    // Interactions: show interaction field picker
+    overlay.querySelector('[data-format="interactions"]').addEventListener('click', () => showStep(intFieldsStep));
+
+    // Wire up both field steps (back, select all/none, export)
+    [csvFieldsStep, intFieldsStep].forEach(step => {
+      step.querySelector('[data-back]').addEventListener('click', () => showStep(formatStep));
+      step.querySelector('[data-select-all]').addEventListener('click', () => {
+        step.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = true);
+      });
+      step.querySelector('[data-select-none]').addEventListener('click', () => {
+        step.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+      });
     });
 
-    // Back button
-    overlay.querySelector('#export-back-btn').addEventListener('click', () => {
-      fieldsStep.hidden = true;
-      formatStep.hidden = false;
-    });
-
-    // Select All / None
-    overlay.querySelector('#export-select-all').addEventListener('click', () => {
-      fieldsStep.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = true);
-    });
-    overlay.querySelector('#export-select-none').addEventListener('click', () => {
-      fieldsStep.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
-    });
-
-    // Export CSV with selected fields
-    overlay.querySelector('#export-csv-btn').addEventListener('click', () => {
-      const selected = [...fieldsStep.querySelectorAll('input[type="checkbox"]:checked')].map(cb => cb.value);
-      if (selected.length === 0) {
-        this.toast('Select at least one field', 'error');
-        return;
-      }
+    // Export contacts CSV
+    csvFieldsStep.querySelector('[data-export]').addEventListener('click', () => {
+      const selected = [...csvFieldsStep.querySelectorAll('input[type="checkbox"]:checked')].map(cb => cb.value);
+      if (selected.length === 0) { this.toast('Select at least one field', 'error'); return; }
       try {
         ImportExport.exportContacts(contacts, selected);
         this.toast(`Exported ${contacts.length} contact${contacts.length > 1 ? 's' : ''}`);
         this.closeModal(overlay);
       } catch (err) {
         this.toast(err.message, 'error');
+      }
+    });
+
+    // Export interactions CSV
+    intFieldsStep.querySelector('[data-export]').addEventListener('click', async () => {
+      const selected = [...intFieldsStep.querySelectorAll('input[type="checkbox"]:checked')].map(cb => cb.value);
+      if (selected.length === 0) { this.toast('Select at least one field', 'error'); return; }
+      const btn = intFieldsStep.querySelector('[data-export]');
+      btn.disabled = true;
+      btn.textContent = 'Exporting...';
+      try {
+        const count = await ImportExport.exportInteractions(contacts, selected);
+        this.toast(`Exported ${count} interaction${count > 1 ? 's' : ''}`);
+        this.closeModal(overlay);
+      } catch (err) {
+        this.toast(err.message, 'error');
+        btn.disabled = false;
+        btn.textContent = 'Export Interactions CSV';
       }
     });
   },
