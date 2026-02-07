@@ -134,7 +134,10 @@ const App = {
     try {
       const [groups, customFields] = await Promise.all([
         Groups.list(),
-        Fields.list()
+        Fields.list().catch(err => {
+          console.warn('Custom fields not available:', err.message);
+          return [];
+        })
       ]);
       this.state.groups = groups;
       this.state.customFields = customFields;
@@ -435,6 +438,7 @@ const App = {
       // Row click to profile (not on checkbox)
       tr.addEventListener('click', (e) => {
         if (e.target.closest('.td-select')) return;
+        this.clearSelection();
         this.state.currentContactId = contactId;
         this.state.view = 'profile';
         this.renderHeader();
@@ -505,7 +509,7 @@ const App = {
         Contacts.get(id),
         Interactions.listForContact(id),
         Reminders.listForContact(id),
-        Fields.getValuesForContact(id)
+        Fields.getValuesForContact(id).catch(() => [])
       ]);
 
       const groups = contact.contact_groups?.map(cg => cg.groups).filter(Boolean) || [];
@@ -870,15 +874,33 @@ const App = {
     bar.innerHTML = `
       <span class="bulk-action-bar-count">${count} selected</span>
       <button class="btn btn-sm btn-bulk-group" id="bulk-add-group-btn">Add to Group</button>
+      <button class="btn btn-sm btn-bulk-delete" id="bulk-delete-btn">Delete</button>
       <button class="btn btn-sm btn-bulk-clear" id="bulk-clear-btn">Clear</button>
     `;
     bar.querySelector('#bulk-add-group-btn').addEventListener('click', () => this.showBulkAddToGroupModal());
+    bar.querySelector('#bulk-delete-btn').addEventListener('click', () => this.handleBulkDelete());
     bar.querySelector('#bulk-clear-btn').addEventListener('click', () => this.clearSelection());
   },
 
   removeBulkActionBar() {
     const bar = document.querySelector('.bulk-action-bar');
     if (bar) bar.remove();
+  },
+
+  async handleBulkDelete() {
+    const count = this.state.selectedContactIds.size;
+    if (!confirm(`Delete ${count} contact${count > 1 ? 's' : ''}? This cannot be undone.`)) return;
+    const ids = Array.from(this.state.selectedContactIds);
+    try {
+      await Promise.all(ids.map(id => Contacts.delete(id)));
+      this.toast(`Deleted ${count} contact${count > 1 ? 's' : ''}`);
+      this.clearSelection();
+      await this.loadData();
+      this.renderSidebar();
+      this.renderTable();
+    } catch (err) {
+      this.toast('Failed to delete: ' + err.message, 'error');
+    }
   },
 
   showBulkAddToGroupModal() {
@@ -1626,7 +1648,7 @@ const App = {
         await Fields.create({
           name: fd.get('name'),
           field_type: fieldType,
-          options: JSON.stringify(options)
+          options: options
         });
         this.state.customFields = await Fields.list();
         this.toast('Field added');

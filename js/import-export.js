@@ -198,6 +198,7 @@ const ImportExport = {
   similarityScore(a, b) {
     let score = 0;
     let maxScore = 0;
+    let exactNameMatch = false;
 
     // Name matching (weighted heavily)
     const nameA = `${a.first_name || ''} ${a.last_name || ''}`.toLowerCase().trim();
@@ -206,6 +207,7 @@ const ImportExport = {
       maxScore += 1;
       if (nameA === nameB) {
         score += 1;
+        exactNameMatch = true;
       } else {
         const firstA = (a.first_name || '').toLowerCase().trim();
         const firstB = (b.first_name || '').toLowerCase().trim();
@@ -243,7 +245,15 @@ const ImportExport = {
       if (a.company.toLowerCase() === b.company.toLowerCase()) score += 0.5;
     }
 
-    return maxScore > 0 ? score / maxScore : 0;
+    const computed = maxScore > 0 ? score / maxScore : 0;
+
+    // Exact full name match (first + last) should always flag as potential duplicate
+    // even when email/phone differ (e.g. personal vs work contact info)
+    if (exactNameMatch && nameA.includes(' ')) {
+      return Math.max(computed, 0.6);
+    }
+
+    return computed;
   },
 
   // Merge two contacts (keep primary, merge data from secondary, delete secondary)

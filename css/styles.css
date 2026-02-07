@@ -2228,6 +2228,16 @@ a:hover { color: var(--accent-hover); }
   background: var(--accent-hover);
 }
 
+.bulk-action-bar .btn-bulk-delete {
+  background: var(--danger);
+  color: #fff;
+  border: none;
+}
+
+.bulk-action-bar .btn-bulk-delete:hover {
+  background: #DC2626;
+}
+
 .bulk-action-bar .btn-bulk-clear {
   background: transparent;
   color: rgba(255, 255, 255, 0.7);
