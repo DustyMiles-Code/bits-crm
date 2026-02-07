@@ -966,15 +966,9 @@ const App = {
 
     return order.map((key, idx) => {
       const section = registry[key];
-      const isFirst = idx === 0;
-      const isLast = idx === order.length - 1;
       return `
         <div class="profile-section ${section.widthClass}" data-section-key="${key}" draggable="false">
           <div class="section-drag-handle" draggable="true" title="Drag to reorder">${gripIcon}</div>
-          <div class="section-mobile-reorder">
-            <button class="section-move-btn" data-dir="up" ${isFirst ? 'disabled' : ''} title="Move up">&#9650;</button>
-            <button class="section-move-btn" data-dir="down" ${isLast ? 'disabled' : ''} title="Move down">&#9660;</button>
-          </div>
           ${section.html}
         </div>
       `;
@@ -1058,35 +1052,96 @@ const App = {
       e.preventDefault();
     });
 
-    // Mobile: Up/Down arrow buttons
-    grid.querySelectorAll('.section-move-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const section = btn.closest('.profile-section[data-section-key]');
+    // Mobile: Touch-based drag via handles
+    let touchDragEl = null;
+    let touchStartY = 0;
+    let touchOffsetY = 0;
+    let touchPlaceholder = null;
+    let touchOriginalPos = null;
+
+    grid.querySelectorAll('.section-drag-handle').forEach(handle => {
+      handle.addEventListener('touchstart', (e) => {
+        const section = handle.closest('.profile-section[data-section-key]');
         if (!section) return;
 
-        const dir = btn.dataset.dir;
-        const sections = Array.from(grid.querySelectorAll('.profile-section[data-section-key]'));
-        const idx = sections.indexOf(section);
+        touchDragEl = section;
+        const touch = e.touches[0];
+        const rect = section.getBoundingClientRect();
+        touchStartY = touch.clientY;
+        touchOffsetY = touch.clientY - rect.top;
 
-        if (dir === 'up' && idx > 0) {
-          grid.insertBefore(section, sections[idx - 1]);
-        } else if (dir === 'down' && idx < sections.length - 1) {
-          const next = sections[idx + 1];
-          grid.insertBefore(section, next.nextSibling);
+        // Remember original position
+        touchOriginalPos = section.nextSibling;
+
+        // Create placeholder
+        touchPlaceholder = document.createElement('div');
+        touchPlaceholder.className = 'section-drop-placeholder';
+        if (section.classList.contains('full-width')) {
+          touchPlaceholder.classList.add('full-width');
         }
+        touchPlaceholder.style.height = rect.height + 'px';
 
-        // Update all up/down button disabled states
-        const updated = Array.from(grid.querySelectorAll('.profile-section[data-section-key]'));
-        updated.forEach((el, i) => {
-          const upBtn = el.querySelector('.section-move-btn[data-dir="up"]');
-          const downBtn = el.querySelector('.section-move-btn[data-dir="down"]');
-          if (upBtn) upBtn.disabled = i === 0;
-          if (downBtn) downBtn.disabled = i === updated.length - 1;
-        });
+        // Style the dragged element for fixed positioning
+        section.classList.add('section-touch-dragging');
+        section.style.position = 'fixed';
+        section.style.left = rect.left + 'px';
+        section.style.top = rect.top + 'px';
+        section.style.width = rect.width + 'px';
+        section.style.margin = '0';
 
-        this.saveProfileSectionOrder(getSectionOrder());
-      });
+        // Insert placeholder where section was
+        grid.insertBefore(touchPlaceholder, section);
+
+        e.preventDefault();
+      }, { passive: false });
+    });
+
+    document.addEventListener('touchmove', (e) => {
+      if (!touchDragEl) return;
+      e.preventDefault();
+
+      const touch = e.touches[0];
+      const newTop = touch.clientY - touchOffsetY;
+      touchDragEl.style.top = newTop + 'px';
+
+      // Find which section we're over
+      const sections = Array.from(grid.querySelectorAll('.profile-section[data-section-key]'));
+      for (const section of sections) {
+        if (section === touchDragEl) continue;
+        const rect = section.getBoundingClientRect();
+        const midY = rect.top + rect.height / 2;
+        if (touch.clientY < midY) {
+          grid.insertBefore(touchPlaceholder, section);
+          return;
+        }
+      }
+      // If past all sections, put placeholder at end
+      grid.appendChild(touchPlaceholder);
+    }, { passive: false });
+
+    document.addEventListener('touchend', () => {
+      if (!touchDragEl) return;
+
+      // Place the section where the placeholder is
+      grid.insertBefore(touchDragEl, touchPlaceholder);
+
+      // Clean up styles
+      touchDragEl.classList.remove('section-touch-dragging');
+      touchDragEl.style.position = '';
+      touchDragEl.style.left = '';
+      touchDragEl.style.top = '';
+      touchDragEl.style.width = '';
+      touchDragEl.style.margin = '';
+
+      if (touchPlaceholder && touchPlaceholder.parentNode) {
+        touchPlaceholder.remove();
+      }
+
+      this.saveProfileSectionOrder(getSectionOrder());
+
+      touchDragEl = null;
+      touchPlaceholder = null;
+      touchOriginalPos = null;
     });
   },
 

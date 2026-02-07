@@ -1127,10 +1127,6 @@ a:hover { color: var(--accent-hover); }
   cursor: grabbing;
 }
 
-.section-mobile-reorder {
-  display: none;
-}
-
 .profile-section.section-dragging {
   opacity: 0.4;
   border-style: dashed;
@@ -1148,44 +1144,37 @@ a:hover { color: var(--accent-hover); }
   grid-column: 1 / -1;
 }
 
+/* Mobile: touch-friendly grip bar for section reordering */
 @media (max-width: 768px) {
   .section-drag-handle {
-    display: none;
-  }
-
-  .section-mobile-reorder {
-    display: flex;
-    position: absolute;
-    top: var(--sp-3);
-    right: var(--sp-3);
-    gap: var(--sp-1);
-    z-index: 2;
-  }
-
-  .section-move-btn {
-    width: 28px;
-    height: 28px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: 1px solid var(--border);
-    background: var(--bg);
-    color: var(--text-secondary);
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    padding: 0;
-    font-size: var(--font-size-sm);
-    transition: var(--transition-fast);
-  }
-
-  .section-move-btn:hover {
+    position: relative;
+    top: auto;
+    right: auto;
+    width: 100%;
+    height: 24px;
+    opacity: 1;
+    cursor: grab;
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    margin: calc(-1 * var(--sp-4)) calc(-1 * var(--sp-4)) var(--sp-3) calc(-1 * var(--sp-4));
+    padding: 0 var(--sp-4);
     background: var(--bg-secondary);
-    color: var(--text);
+    border-bottom: 1px solid var(--border-light);
+    touch-action: none;
   }
 
-  .section-move-btn:disabled {
-    opacity: 0.3;
-    cursor: not-allowed;
+  .profile-section[data-section-key]:hover .section-drag-handle {
+    opacity: 1;
+  }
+
+  .section-drag-handle svg {
+    transform: rotate(90deg);
+  }
+
+  .profile-section.section-touch-dragging {
+    opacity: 0.7;
+    box-shadow: var(--shadow-lg);
+    z-index: 100;
+    pointer-events: none;
   }
 }
 
@@ -2396,14 +2385,31 @@ a:hover { color: var(--accent-hover); }
   .profile-actions {
     justify-content: center;
     width: 100%;
+    flex-wrap: wrap;
   }
 
   .profile-actions .btn {
     flex: 1;
+    min-width: 0;
+    font-size: var(--font-size-sm);
+    padding: var(--sp-2) var(--sp-3);
   }
 
   .profile-section {
     padding: var(--sp-4);
+  }
+
+  .profile-section-header {
+    gap: var(--sp-2);
+    flex-wrap: wrap;
+  }
+
+  .main-body {
+    overflow-x: hidden;
+  }
+
+  .multi-value-row .form-select.multi-value-label {
+    width: 85px;
   }
 
   /* Modals: full screen on mobile */
