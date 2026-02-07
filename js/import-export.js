@@ -31,6 +31,51 @@ const ImportExport = {
     URL.revokeObjectURL(url);
   },
 
+  // vCard Export
+  exportAsVCard(contacts) {
+    if (!contacts || contacts.length === 0) {
+      throw new Error('No contacts to export');
+    }
+
+    const escVCard = (str) => (str || '').replace(/[\\;,]/g, '\\$&').replace(/\n/g, '\\n');
+
+    const vcards = contacts.map(c => {
+      const lines = ['BEGIN:VCARD', 'VERSION:3.0'];
+      const fn = [c.first_name, c.last_name].filter(Boolean).join(' ');
+      lines.push(`FN:${escVCard(fn)}`);
+      lines.push(`N:${escVCard(c.last_name || '')};${escVCard(c.first_name || '')};;;`);
+
+      Contacts.getEmails(c).forEach(e => {
+        const type = e.label === 'work' ? 'WORK' : e.label === 'other' ? 'OTHER' : 'HOME';
+        lines.push(`EMAIL;TYPE=${type}:${e.value}`);
+      });
+
+      Contacts.getPhones(c).forEach(p => {
+        const type = p.label === 'work' ? 'WORK' : p.label === 'other' ? 'OTHER' : 'HOME';
+        lines.push(`TEL;TYPE=${type}:${p.value}`);
+      });
+
+      if (c.company) lines.push(`ORG:${escVCard(c.company)}`);
+      if (c.title) lines.push(`TITLE:${escVCard(c.title)}`);
+      if (c.birthday) lines.push(`BDAY:${c.birthday}`);
+      if (c.notes) lines.push(`NOTE:${escVCard(c.notes)}`);
+
+      lines.push('END:VCARD');
+      return lines.join('\r\n');
+    }).join('\r\n');
+
+    const blob = new Blob([vcards], { type: 'text/vcard;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    const filename = contacts.length === 1
+      ? `${[contacts[0].first_name, contacts[0].last_name].filter(Boolean).join('-').toLowerCase() || 'contact'}.vcf`
+      : `crm-contacts-${new Date().toISOString().slice(0, 10)}.vcf`;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+  },
+
   // CSV Parse
   parseCSV(text) {
     const lines = [];

@@ -121,12 +121,14 @@ html.dark .bulk-action-bar {
   color: #1A1A2E;
 }
 
-html.dark .bulk-action-bar .btn-bulk-clear {
+html.dark .bulk-action-bar .btn-bulk-clear,
+html.dark .bulk-action-bar .btn-bulk-export {
   color: rgba(26, 26, 46, 0.6);
   border-color: rgba(26, 26, 46, 0.2);
 }
 
-html.dark .bulk-action-bar .btn-bulk-clear:hover {
+html.dark .bulk-action-bar .btn-bulk-clear:hover,
+html.dark .bulk-action-bar .btn-bulk-export:hover {
   color: #1A1A2E;
   border-color: rgba(26, 26, 46, 0.4);
 }
@@ -1859,6 +1861,58 @@ a:hover { color: var(--accent-hover); }
 }
 
 /* ============================================
+   EXPORT FORMAT PICKER
+   ============================================ */
+.export-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.export-option {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  padding: var(--sp-4) var(--sp-5);
+  background: var(--bg-secondary);
+  border: 2px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  font-family: var(--font);
+  text-align: left;
+  transition: var(--transition-fast);
+}
+
+.export-option:hover {
+  border-color: var(--accent);
+  background: var(--accent-light);
+}
+
+.export-option-icon {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  border-radius: var(--radius);
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.export-option-title {
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+
+.export-option-desc {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
+/* ============================================
    RESPONSIVE
    ============================================ */
 .sidebar-toggle {
@@ -2361,6 +2415,17 @@ a:hover { color: var(--accent-hover); }
 
 .bulk-action-bar .btn-bulk-group:hover {
   background: var(--accent-hover);
+}
+
+.bulk-action-bar .btn-bulk-export {
+  background: transparent;
+  color: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.bulk-action-bar .btn-bulk-export:hover {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.5);
 }
 
 .bulk-action-bar .btn-bulk-delete {

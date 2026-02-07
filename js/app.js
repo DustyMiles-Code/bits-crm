@@ -680,6 +680,10 @@ const App = {
               </div>
             </div>
             <div class="profile-actions">
+              <button class="btn btn-ghost btn-sm" id="profile-export-btn" title="Export contact">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                Export
+              </button>
               <button class="btn btn-secondary btn-sm" id="profile-edit-btn">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 Edit
@@ -833,6 +837,11 @@ const App = {
   },
 
   bindProfileEvents(contact, groups) {
+    // Export contact
+    document.getElementById('profile-export-btn')?.addEventListener('click', () => {
+      this.handleExport([contact]);
+    });
+
     // Edit contact
     document.getElementById('profile-edit-btn')?.addEventListener('click', () => {
       this.showContactModal(contact);
@@ -1020,10 +1029,12 @@ const App = {
     bar.innerHTML = `
       <span class="bulk-action-bar-count">${count} selected</span>
       <button class="btn btn-sm btn-bulk-group" id="bulk-add-group-btn">Add to Group</button>
+      <button class="btn btn-sm btn-bulk-export" id="bulk-export-btn">Export</button>
       <button class="btn btn-sm btn-bulk-delete" id="bulk-delete-btn">Delete</button>
       <button class="btn btn-sm btn-bulk-clear" id="bulk-clear-btn">Clear</button>
     `;
     bar.querySelector('#bulk-add-group-btn').addEventListener('click', () => this.showBulkAddToGroupModal());
+    bar.querySelector('#bulk-export-btn').addEventListener('click', () => this.handleExport());
     bar.querySelector('#bulk-delete-btn').addEventListener('click', () => this.handleBulkDelete());
     bar.querySelector('#bulk-clear-btn').addEventListener('click', () => this.clearSelection());
   },
@@ -2031,18 +2042,74 @@ const App = {
   },
 
   // Export
-  async handleExport() {
-    try {
-      const contacts = await Contacts.list({
-        groupId: this.state.currentGroupId,
-        sortBy: this.state.sortBy,
-        sortDir: this.state.sortDir
-      });
-      await ImportExport.exportContacts(contacts);
-      this.toast('Contacts exported');
-    } catch (err) {
-      this.toast(err.message, 'error');
+  async handleExport(contactsOverride = null) {
+    let contacts;
+    let label;
+    if (contactsOverride) {
+      contacts = contactsOverride;
+      label = contacts.length === 1 ? Contacts.getFullName(contacts[0]) : `${contacts.length} contacts`;
+    } else if (this.state.selectedContactIds.size > 0) {
+      contacts = this.state.contacts.filter(c => this.state.selectedContactIds.has(c.id));
+      label = `${contacts.length} selected contact${contacts.length > 1 ? 's' : ''}`;
+    } else {
+      contacts = this.state.contacts;
+      label = `${contacts.length} contact${contacts.length > 1 ? 's' : ''}`;
     }
+
+    if (!contacts || contacts.length === 0) {
+      this.toast('No contacts to export', 'error');
+      return;
+    }
+
+    this.showExportModal(contacts, label);
+  },
+
+  showExportModal(contacts, label) {
+    const html = `
+      <div class="modal-header">
+        <div class="modal-title">Export ${this.esc(label)}</div>
+        <button class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="export-options">
+          <button class="export-option" data-format="vcard">
+            <div class="export-option-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            </div>
+            <div>
+              <div class="export-option-title">vCard (.vcf)</div>
+              <div class="export-option-desc">For Outlook, Google Contacts, Apple, Android</div>
+            </div>
+          </button>
+          <button class="export-option" data-format="csv">
+            <div class="export-option-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            </div>
+            <div>
+              <div class="export-option-title">CSV (.csv)</div>
+              <div class="export-option-desc">For Excel, Google Sheets, spreadsheets</div>
+            </div>
+          </button>
+        </div>
+      </div>
+    `;
+
+    const overlay = this.showModal(html);
+    overlay.querySelectorAll('.export-option').forEach(btn => {
+      btn.addEventListener('click', () => {
+        try {
+          if (btn.dataset.format === 'vcard') {
+            ImportExport.exportAsVCard(contacts);
+          } else {
+            ImportExport.exportContacts(contacts);
+          }
+          this.toast(`Exported ${contacts.length} contact${contacts.length > 1 ? 's' : ''}`);
+          this.closeModal(overlay);
+        } catch (err) {
+          this.toast(err.message, 'error');
+        }
+      });
+    });
   },
 
   // Merge Modal
