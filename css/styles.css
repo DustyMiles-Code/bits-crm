@@ -78,6 +78,67 @@
   --header-height: 60px;
 }
 
+/* ============================================
+   DARK MODE
+   ============================================ */
+html.dark {
+  --bg: #1A1A2E;
+  --bg-secondary: #16162A;
+  --bg-tertiary: #222240;
+  --text: #E5E7EB;
+  --text-secondary: #9CA3AF;
+  --text-tertiary: #6B7280;
+  --border: #2D2D4A;
+  --border-light: #252542;
+  --accent: #818CF8;
+  --accent-hover: #6366F1;
+  --accent-light: rgba(129, 140, 248, 0.12);
+  --success: #34D399;
+  --success-light: rgba(52, 211, 153, 0.12);
+  --warning: #FBBF24;
+  --warning-light: rgba(251, 191, 36, 0.12);
+  --danger: #F87171;
+  --danger-light: rgba(248, 113, 113, 0.12);
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.35), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
+  color-scheme: dark;
+}
+
+html.dark .toast {
+  background: #E5E7EB;
+  color: #1A1A2E;
+}
+
+html.dark .toast.success { background: var(--success); color: #1A1A2E; }
+html.dark .toast.error { background: var(--danger); color: #1A1A2E; }
+html.dark .toast.warning { background: var(--warning); color: #1A1A2E; }
+
+html.dark .bulk-action-bar {
+  background: #E5E7EB;
+  color: #1A1A2E;
+}
+
+html.dark .bulk-action-bar .btn-bulk-clear {
+  color: rgba(26, 26, 46, 0.6);
+  border-color: rgba(26, 26, 46, 0.2);
+}
+
+html.dark .bulk-action-bar .btn-bulk-clear:hover {
+  color: #1A1A2E;
+  border-color: rgba(26, 26, 46, 0.4);
+}
+
+html.dark .timeline-icon.call { background: rgba(37, 99, 235, 0.2); color: #60A5FA; }
+html.dark .timeline-icon.email { background: rgba(79, 70, 229, 0.2); color: #A5B4FC; }
+html.dark .timeline-icon.meeting { background: rgba(16, 185, 129, 0.2); color: #6EE7B7; }
+html.dark .timeline-icon.text { background: rgba(217, 119, 6, 0.2); color: #FCD34D; }
+html.dark .timeline-icon.social { background: rgba(236, 72, 153, 0.2); color: #F9A8D4; }
+
+html.dark .login-page { background: var(--bg); }
+
 /* Base */
 html {
   font-size: 16px;

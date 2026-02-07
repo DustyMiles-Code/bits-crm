@@ -114,6 +114,18 @@ const App = {
       document.querySelectorAll('.dropdown-menu:not([hidden])').forEach(d => d.hidden = true);
     });
 
+    // Dark mode toggle
+    const darkModeBtn = document.getElementById('btn-dark-mode');
+    if (darkModeBtn) {
+      this.updateDarkModeLabel();
+      darkModeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isDark = document.documentElement.classList.toggle('dark');
+        localStorage.setItem('darkMode', isDark);
+        this.updateDarkModeLabel();
+      });
+    }
+
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
@@ -2349,6 +2361,13 @@ const App = {
   },
 
   // ── Utilities ─────────────────────────────────────
+  updateDarkModeLabel() {
+    const label = document.getElementById('dark-mode-label');
+    if (label) {
+      label.textContent = document.documentElement.classList.contains('dark') ? 'Light Mode' : 'Dark Mode';
+    }
+  },
+
   esc(str) {
     if (!str) return '';
     const div = document.createElement('div');
