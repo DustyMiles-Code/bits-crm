@@ -9,7 +9,9 @@ const App = {
     sortDir: 'asc',
     groups: [],
     contacts: [],
-    customFields: []
+    customFields: [],
+    selectedContactIds: new Set(),
+    isDragging: false
   },
 
   // ── Init ──────────────────────────────────────────
@@ -54,6 +56,7 @@ const App = {
     this.searchInput.addEventListener('input', (e) => {
       clearTimeout(searchTimer);
       searchTimer = setTimeout(() => {
+        this.clearSelection();
         this.state.searchQuery = e.target.value;
         this.loadContacts().then(() => this.renderTable());
       }, 300);
@@ -68,6 +71,7 @@ const App = {
     if (logoLink) {
       logoLink.addEventListener('click', (e) => {
         e.preventDefault();
+        this.clearSelection();
         this.state.currentGroupId = null;
         this.state.view = 'table';
         this.state.currentContactId = null;
@@ -82,6 +86,7 @@ const App = {
 
     // All contacts
     this.allContactsBtn.addEventListener('click', () => {
+      this.clearSelection();
       this.state.currentGroupId = null;
       this.state.view = 'table';
       this.state.currentContactId = null;
@@ -110,6 +115,10 @@ const App = {
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
+        if (this.state.selectedContactIds.size > 0) {
+          this.clearSelection();
+          return;
+        }
         this.closeAllModals();
       }
       // Ctrl/Cmd + K for search
@@ -184,9 +193,10 @@ const App = {
       </button>
     `).join('');
 
-    // Group click handlers
+    // Group click handlers + drop targets
     this.groupsList.querySelectorAll('.sidebar-item').forEach(el => {
       el.addEventListener('click', () => {
+        this.clearSelection();
         this.state.currentGroupId = el.dataset.groupId;
         this.state.view = 'table';
         this.state.currentContactId = null;
@@ -202,6 +212,39 @@ const App = {
       el.addEventListener('contextmenu', (e) => {
         e.preventDefault();
         this.showGroupContextMenu(e, el.dataset.groupId);
+      });
+
+      // Drop target handlers
+      el.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+        el.classList.add('drop-target-over');
+      });
+
+      el.addEventListener('dragleave', () => {
+        el.classList.remove('drop-target-over');
+      });
+
+      el.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        el.classList.remove('drop-target-over', 'drop-target-ready');
+        const groupId = el.dataset.groupId;
+        let contactIds;
+        try {
+          contactIds = JSON.parse(e.dataTransfer.getData('text/plain'));
+        } catch { return; }
+        if (!Array.isArray(contactIds) || contactIds.length === 0) return;
+
+        try {
+          await Promise.all(contactIds.map(id => Contacts.addToGroup(id, groupId)));
+          const group = this.state.groups.find(g => g.id === groupId);
+          this.toast(`Added ${contactIds.length} contact${contactIds.length > 1 ? 's' : ''} to ${group?.name || 'group'}`);
+          this.clearSelection();
+          this.state.groups = await Groups.list();
+          this.renderSidebar();
+        } catch (err) {
+          this.toast(err.message, 'error');
+        }
       });
     });
 
@@ -264,6 +307,7 @@ const App = {
       this.mainCount.hidden = true;
       this.mainActions.innerHTML = '';
       document.getElementById('btn-back').addEventListener('click', () => {
+        this.clearSelection();
         this.state.view = 'table';
         this.state.currentContactId = null;
         this.loadContacts().then(() => this.render());
@@ -299,6 +343,7 @@ const App = {
         <table class="contacts-table">
           <thead>
             <tr>
+              <th class="th-select"><input type="checkbox" title="Select all"></th>
               <th class="${sorted('first_name')}" data-sort="first_name">Name ${sortIcon('first_name')}</th>
               <th class="${sorted('email')}" data-sort="email">Email ${sortIcon('email')}</th>
               <th class="${sorted('company')}" data-sort="company">Company ${sortIcon('company')}</th>
@@ -309,7 +354,8 @@ const App = {
           </thead>
           <tbody>
             ${this.state.contacts.map(c => `
-              <tr data-contact-id="${c.id}">
+              <tr data-contact-id="${c.id}" draggable="true" class="${this.state.selectedContactIds.has(c.id) ? 'row-selected' : ''}">
+                <td class="td-select"><input type="checkbox" ${this.state.selectedContactIds.has(c.id) ? 'checked' : ''}></td>
                 <td>
                   <div class="contact-name-cell">
                     <div class="contact-avatar">${Contacts.getInitials(c)}</div>
@@ -331,6 +377,27 @@ const App = {
       </div>
     `;
 
+    // Select All checkbox
+    const selectAllCheckbox = this.mainBody.querySelector('.th-select input[type="checkbox"]');
+    if (selectAllCheckbox) {
+      selectAllCheckbox.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (selectAllCheckbox.checked) {
+          this.state.contacts.forEach(c => this.state.selectedContactIds.add(c.id));
+        } else {
+          this.state.selectedContactIds.clear();
+        }
+        this.mainBody.querySelectorAll('tr[data-contact-id]').forEach(tr => {
+          const id = tr.dataset.contactId;
+          const cb = tr.querySelector('.td-select input[type="checkbox"]');
+          const isSelected = this.state.selectedContactIds.has(id);
+          tr.classList.toggle('row-selected', isSelected);
+          if (cb) cb.checked = isSelected;
+        });
+        this.updateBulkActionBar();
+      });
+    }
+
     // Sort handlers
     this.mainBody.querySelectorAll('th[data-sort]').forEach(th => {
       th.addEventListener('click', () => {
@@ -345,15 +412,74 @@ const App = {
       });
     });
 
-    // Row click to profile
+    // Row checkbox + click + drag handlers
     this.mainBody.querySelectorAll('tr[data-contact-id]').forEach(tr => {
-      tr.addEventListener('click', () => {
-        this.state.currentContactId = tr.dataset.contactId;
+      const contactId = tr.dataset.contactId;
+      const checkbox = tr.querySelector('.td-select input[type="checkbox"]');
+
+      // Checkbox click
+      if (checkbox) {
+        checkbox.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (checkbox.checked) {
+            this.state.selectedContactIds.add(contactId);
+          } else {
+            this.state.selectedContactIds.delete(contactId);
+          }
+          tr.classList.toggle('row-selected', checkbox.checked);
+          this.syncSelectAllCheckbox();
+          this.updateBulkActionBar();
+        });
+      }
+
+      // Row click to profile (not on checkbox)
+      tr.addEventListener('click', (e) => {
+        if (e.target.closest('.td-select')) return;
+        this.state.currentContactId = contactId;
         this.state.view = 'profile';
         this.renderHeader();
         this.renderProfile();
       });
+
+      // Drag start
+      tr.addEventListener('dragstart', (e) => {
+        this.state.isDragging = true;
+        let dragIds;
+        if (this.state.selectedContactIds.has(contactId)) {
+          dragIds = Array.from(this.state.selectedContactIds);
+        } else {
+          dragIds = [contactId];
+        }
+        e.dataTransfer.setData('text/plain', JSON.stringify(dragIds));
+        e.dataTransfer.effectAllowed = 'copy';
+
+        // Create ghost badge
+        const ghost = document.createElement('div');
+        ghost.className = 'drag-ghost';
+        ghost.textContent = dragIds.length === 1
+          ? (this.state.contacts.find(c => c.id === dragIds[0])?.first_name || '1 contact')
+          : `${dragIds.length} contacts`;
+        document.body.appendChild(ghost);
+        e.dataTransfer.setDragImage(ghost, 0, 0);
+        setTimeout(() => ghost.remove(), 0);
+
+        tr.classList.add('dragging');
+        // Mark sidebar groups as drop targets
+        document.querySelectorAll('#groups-list .sidebar-item').forEach(el => {
+          el.classList.add('drop-target-ready');
+        });
+      });
+
+      tr.addEventListener('dragend', () => {
+        this.state.isDragging = false;
+        tr.classList.remove('dragging');
+        document.querySelectorAll('.drop-target-ready, .drop-target-over').forEach(el => {
+          el.classList.remove('drop-target-ready', 'drop-target-over');
+        });
+      });
     });
+
+    this.syncSelectAllCheckbox();
   },
 
   renderLastInteraction(contact) {
@@ -706,6 +832,94 @@ const App = {
 
   async loadGroups() {
     this.state.groups = await Groups.list();
+  },
+
+  // ── Selection & Bulk Actions ─────────────────────
+  clearSelection() {
+    this.state.selectedContactIds.clear();
+    document.querySelectorAll('.row-selected').forEach(el => el.classList.remove('row-selected'));
+    const selectAll = document.querySelector('.th-select input[type="checkbox"]');
+    if (selectAll) {
+      selectAll.checked = false;
+      selectAll.indeterminate = false;
+    }
+    this.removeBulkActionBar();
+  },
+
+  syncSelectAllCheckbox() {
+    const selectAll = document.querySelector('.th-select input[type="checkbox"]');
+    if (!selectAll) return;
+    const total = this.state.contacts.length;
+    const selected = this.state.selectedContactIds.size;
+    selectAll.checked = total > 0 && selected === total;
+    selectAll.indeterminate = selected > 0 && selected < total;
+  },
+
+  updateBulkActionBar() {
+    const count = this.state.selectedContactIds.size;
+    if (count === 0) {
+      this.removeBulkActionBar();
+      return;
+    }
+    let bar = document.querySelector('.bulk-action-bar');
+    if (!bar) {
+      bar = document.createElement('div');
+      bar.className = 'bulk-action-bar';
+      document.body.appendChild(bar);
+    }
+    bar.innerHTML = `
+      <span class="bulk-action-bar-count">${count} selected</span>
+      <button class="btn btn-sm btn-bulk-group" id="bulk-add-group-btn">Add to Group</button>
+      <button class="btn btn-sm btn-bulk-clear" id="bulk-clear-btn">Clear</button>
+    `;
+    bar.querySelector('#bulk-add-group-btn').addEventListener('click', () => this.showBulkAddToGroupModal());
+    bar.querySelector('#bulk-clear-btn').addEventListener('click', () => this.clearSelection());
+  },
+
+  removeBulkActionBar() {
+    const bar = document.querySelector('.bulk-action-bar');
+    if (bar) bar.remove();
+  },
+
+  showBulkAddToGroupModal() {
+    if (this.state.groups.length === 0) {
+      this.toast('No groups available. Create a group first.');
+      return;
+    }
+
+    const html = `
+      <div class="modal-header">
+        <div class="modal-title">Add ${this.state.selectedContactIds.size} contacts to group</div>
+        <button class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        ${this.state.groups.map(g => `
+          <button class="sidebar-item" data-group-id="${g.id}" style="width:100%">
+            <span class="sidebar-item-icon">${g.emoji}</span>
+            <span class="sidebar-item-label">${this.esc(g.name)}</span>
+          </button>
+        `).join('')}
+      </div>
+    `;
+
+    const overlay = this.showModal(html);
+    overlay.querySelectorAll('[data-group-id]').forEach(el => {
+      el.addEventListener('click', async () => {
+        const groupId = el.dataset.groupId;
+        const ids = Array.from(this.state.selectedContactIds);
+        try {
+          await Promise.all(ids.map(id => Contacts.addToGroup(id, groupId)));
+          const group = this.state.groups.find(g => g.id === groupId);
+          this.toast(`Added ${ids.length} contact${ids.length > 1 ? 's' : ''} to ${group?.name || 'group'}`);
+          this.closeModal(overlay);
+          this.clearSelection();
+          this.state.groups = await Groups.list();
+          this.renderSidebar();
+        } catch (err) {
+          this.toast(err.message, 'error');
+        }
+      });
+    });
   },
 
   // ── Modals ───────────────────────────────────────

@@ -1772,9 +1772,9 @@ a:hover { color: var(--accent-hover); }
 
 /* Tablet */
 @media (max-width: 1024px) {
-  .contacts-table th:nth-child(6),
-  .contacts-table td:nth-child(6) {
-    display: none; /* hide Notes column */
+  .contacts-table th:nth-child(7),
+  .contacts-table td:nth-child(7) {
+    display: none; /* hide Notes column (shifted +1 for checkbox col) */
   }
 }
 
@@ -1899,28 +1899,39 @@ a:hover { color: var(--accent-hover); }
     border: none;
   }
 
-  /* Name cell takes full width */
-  .contacts-table td:nth-child(1) {
+  /* Hide checkbox column on mobile (drag doesn't work on touch) */
+  .contacts-table .th-select,
+  .contacts-table .td-select {
+    display: none;
+  }
+
+  /* Name cell takes full width (col 2 now, after hidden checkbox) */
+  .contacts-table td:nth-child(2) {
     width: 100%;
     margin-bottom: var(--sp-1);
   }
 
   /* Email + Company inline */
-  .contacts-table td:nth-child(2),
-  .contacts-table td:nth-child(3) {
+  .contacts-table td:nth-child(3),
+  .contacts-table td:nth-child(4) {
     font-size: var(--font-size-sm);
     color: var(--text-secondary);
   }
 
   /* Hide less important columns */
-  .contacts-table td:nth-child(4),
-  .contacts-table td:nth-child(6) {
+  .contacts-table td:nth-child(5),
+  .contacts-table td:nth-child(7) {
     display: none;
   }
 
   /* Goal status */
-  .contacts-table td:nth-child(5) {
+  .contacts-table td:nth-child(6) {
     margin-left: auto;
+  }
+
+  /* Bulk action bar full-width on mobile */
+  .bulk-action-bar {
+    left: 0;
   }
 
   /* Profile view */
@@ -2101,3 +2112,134 @@ a:hover { color: var(--accent-hover); }
 .gap-2 { gap: var(--sp-2); }
 .gap-3 { gap: var(--sp-3); }
 .gap-4 { gap: var(--sp-4); }
+
+/* ============================================
+   MULTI-SELECT & BULK ACTIONS
+   ============================================ */
+
+/* Selected row highlight */
+.contacts-table tbody tr.row-selected {
+  background: var(--accent-light);
+}
+
+.contacts-table tbody tr.row-selected:hover {
+  background: var(--accent-light);
+}
+
+/* Checkbox column sizing */
+.th-select,
+.td-select {
+  width: 40px;
+  min-width: 40px;
+  max-width: 40px;
+  text-align: center;
+}
+
+.th-select input[type="checkbox"],
+.td-select input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+
+/* Prevent checkbox th from being sortable-styled */
+.contacts-table th.th-select {
+  cursor: default;
+}
+
+.contacts-table th.th-select:hover {
+  color: var(--text-tertiary);
+}
+
+/* Drag-and-drop: sidebar group drop targets */
+.sidebar-item.drop-target-ready {
+  outline: 2px dashed var(--border);
+  outline-offset: -2px;
+}
+
+.sidebar-item.drop-target-over {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  background: var(--accent-light);
+  color: var(--accent);
+}
+
+/* Drag ghost badge */
+.drag-ghost {
+  position: fixed;
+  top: -1000px;
+  left: -1000px;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--accent);
+  color: #fff;
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  font-family: var(--font);
+  box-shadow: var(--shadow-lg);
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* Dragging row style */
+.contacts-table tbody tr.dragging {
+  opacity: 0.5;
+}
+
+/* Bulk action bar */
+.bulk-action-bar {
+  position: fixed;
+  bottom: 0;
+  left: var(--sidebar-width);
+  right: 0;
+  background: var(--text);
+  color: #fff;
+  padding: var(--sp-3) var(--sp-6);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  z-index: 100;
+  animation: bulkBarSlideUp 0.2s ease;
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.bulk-action-bar-count {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.bulk-action-bar .btn {
+  font-size: var(--font-size-sm);
+}
+
+.bulk-action-bar .btn-bulk-group {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+}
+
+.bulk-action-bar .btn-bulk-group:hover {
+  background: var(--accent-hover);
+}
+
+.bulk-action-bar .btn-bulk-clear {
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.bulk-action-bar .btn-bulk-clear:hover {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+@keyframes bulkBarSlideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
