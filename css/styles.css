@@ -1556,6 +1556,117 @@ a:hover { color: var(--accent-hover); }
   border: 1px solid var(--accent);
 }
 
+/* Merge Detail Modal */
+.merge-detail-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.merge-detail-field {
+  border-bottom: 1px solid var(--border-light);
+  padding-bottom: var(--sp-4);
+}
+
+.merge-detail-field:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.merge-detail-label {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: var(--sp-2);
+}
+
+.merge-detail-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-2);
+}
+
+.merge-detail-notes-options {
+  grid-template-columns: 1fr;
+}
+
+.merge-detail-radio {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--bg-secondary);
+  border: 2px solid transparent;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  color: var(--text);
+  transition: var(--transition-fast);
+  word-break: break-word;
+}
+
+.merge-detail-radio:hover {
+  border-color: var(--border);
+}
+
+.merge-detail-radio:has(input:checked) {
+  background: var(--accent-light);
+  border-color: var(--accent);
+}
+
+.merge-detail-radio.empty span {
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+
+.merge-detail-radio input[type="radio"] {
+  margin-top: 2px;
+  flex-shrink: 0;
+  accent-color: var(--accent);
+}
+
+.merge-notes-preview {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.4;
+}
+
+.merge-detail-checkboxes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.merge-detail-checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--bg-secondary);
+  border: 2px solid transparent;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  color: var(--text);
+  transition: var(--transition-fast);
+}
+
+.merge-detail-checkbox:hover {
+  border-color: var(--border);
+}
+
+.merge-detail-checkbox:has(input:checked) {
+  background: var(--accent-light);
+  border-color: var(--accent);
+}
+
+.merge-detail-checkbox input[type="checkbox"] {
+  flex-shrink: 0;
+  accent-color: var(--accent);
+}
+
 /* ============================================
    LOADING & SKELETON
    ============================================ */

@@ -695,9 +695,13 @@ const App = {
   },
 
   async refreshProfile() {
-    await Promise.all([this.loadGroups(), this.loadContacts()]);
+    await Promise.all([this.loadGroups(), this.loadContacts(), this.loadCustomFields()]);
     this.renderSidebar();
     this.renderProfile();
+  },
+
+  async loadCustomFields() {
+    this.state.customFields = await Fields.list();
   },
 
   async loadGroups() {
@@ -1614,7 +1618,7 @@ const App = {
       }
 
       body.innerHTML = `
-        <div class="text-sm text-secondary mb-4">Found ${pairs.length} potential duplicate${pairs.length > 1 ? 's' : ''}. Click "Merge" to combine them.</div>
+        <div class="text-sm text-secondary mb-4">Found ${pairs.length} potential duplicate${pairs.length > 1 ? 's' : ''}. Click "Review & Merge" to choose which data to keep.</div>
         ${pairs.map((p, i) => {
           const renderContactEmails = (c) => Contacts.getEmails(c).map(e =>
             `<div class="text-sm text-secondary">${this.esc(e.value)} <span class="profile-meta-label">(${this.esc(e.label)})</span></div>`
@@ -1626,7 +1630,7 @@ const App = {
           <div class="merge-pair" data-pair-index="${i}">
             <div class="merge-pair-header">
               <span class="badge badge-warning">${Math.round(p.score * 100)}% match</span>
-              <button class="btn btn-sm btn-primary merge-btn" data-primary="${p.a.id}" data-secondary="${p.b.id}">Merge → Keep Left</button>
+              <button class="btn btn-sm btn-primary merge-review-btn" data-a-id="${p.a.id}" data-b-id="${p.b.id}">Review & Merge</button>
             </div>
             <div class="merge-contacts">
               <div class="merge-contact">
@@ -1646,26 +1650,236 @@ const App = {
         `}).join('')}
       `;
 
-      body.querySelectorAll('.merge-btn').forEach(btn => {
-        btn.addEventListener('click', async () => {
-          btn.disabled = true;
-          btn.textContent = 'Merging...';
-          try {
-            await ImportExport.mergeContacts(btn.dataset.primary, btn.dataset.secondary);
-            this.toast('Contacts merged');
-            btn.closest('.merge-pair').remove();
-            await this.loadData();
-            this.renderSidebar();
-            if (this.state.view === 'table') this.renderTable();
-          } catch (err) {
-            this.toast(err.message, 'error');
-            btn.disabled = false;
-            btn.textContent = 'Merge → Keep Left';
-          }
+      body.querySelectorAll('.merge-review-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          this.closeModal(overlay);
+          this.showMergeDetailModal(btn.dataset.aId, btn.dataset.bId);
         });
       });
     } catch (err) {
       this.toast(err.message, 'error');
+    }
+  },
+
+  // Merge Detail Modal — field-by-field selection
+  async showMergeDetailModal(aId, bId) {
+    const loadingHtml = `
+      <div class="modal-header">
+        <div class="modal-title">Merge Contacts</div>
+        <button class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div style="display:flex;justify-content:center;padding:24px"><div class="loading-spinner"></div></div>
+      </div>
+    `;
+
+    const overlay = this.showModal(loadingHtml, { className: 'modal-lg' });
+
+    try {
+      const [contactA, contactB] = await Promise.all([
+        Contacts.get(aId),
+        Contacts.get(bId)
+      ]);
+
+      const emailsA = Contacts.getEmails(contactA);
+      const emailsB = Contacts.getEmails(contactB);
+      const phonesA = Contacts.getPhones(contactA);
+      const phonesB = Contacts.getPhones(contactB);
+
+      // Build radio field rows for single-value fields
+      const radioField = (label, fieldName, valA, valB) => {
+        const aDisplay = valA || '(empty)';
+        const bDisplay = valB || '(empty)';
+        const aEmpty = !valA;
+        const bEmpty = !valB;
+        // Skip row if both empty
+        if (aEmpty && bEmpty) return '';
+        return `
+          <div class="merge-detail-field">
+            <div class="merge-detail-label">${this.esc(label)}</div>
+            <div class="merge-detail-options">
+              <label class="merge-detail-radio ${aEmpty ? 'empty' : ''}">
+                <input type="radio" name="merge_${fieldName}" value="a" checked>
+                <span>${this.esc(aDisplay)}</span>
+              </label>
+              <label class="merge-detail-radio ${bEmpty ? 'empty' : ''}">
+                <input type="radio" name="merge_${fieldName}" value="b">
+                <span>${this.esc(bDisplay)}</span>
+              </label>
+            </div>
+          </div>
+        `;
+      };
+
+      // Build checkbox rows for multi-value fields (emails/phones)
+      const checkboxField = (label, itemsA, itemsB, fieldName) => {
+        const allItems = [];
+        itemsA.forEach(item => allItems.push({ ...item, source: 'a' }));
+        itemsB.forEach(item => {
+          // Avoid exact duplicate entries
+          const normalized = item.value.toLowerCase().trim().replace(/\D/g, fieldName === 'phones' ? '' : item.value.toLowerCase().trim());
+          const isDup = itemsA.some(ai => {
+            const aiNorm = ai.value.toLowerCase().trim().replace(/\D/g, fieldName === 'phones' ? '' : ai.value.toLowerCase().trim());
+            return fieldName === 'phones'
+              ? ai.value.replace(/\D/g, '') === item.value.replace(/\D/g, '')
+              : ai.value.toLowerCase().trim() === item.value.toLowerCase().trim();
+          });
+          if (!isDup) allItems.push({ ...item, source: 'b' });
+        });
+        if (allItems.length === 0) return '';
+        return `
+          <div class="merge-detail-field">
+            <div class="merge-detail-label">${this.esc(label)}</div>
+            <div class="merge-detail-checkboxes">
+              ${allItems.map((item, idx) => `
+                <label class="merge-detail-checkbox">
+                  <input type="checkbox" name="merge_${fieldName}" value="${idx}" data-value="${this.esc(item.value)}" data-label="${this.esc(item.label)}" checked>
+                  <span>${this.esc(item.value)} <span class="profile-meta-label">(${this.esc(item.label)})</span></span>
+                </label>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      };
+
+      // Notes field with "Combine both" option
+      const notesField = () => {
+        const notesA = contactA.notes || '';
+        const notesB = contactB.notes || '';
+        if (!notesA && !notesB) return '';
+        const bothHaveNotes = notesA && notesB && notesA !== notesB;
+        return `
+          <div class="merge-detail-field">
+            <div class="merge-detail-label">Notes</div>
+            <div class="merge-detail-options merge-detail-notes-options">
+              <label class="merge-detail-radio ${!notesA ? 'empty' : ''}">
+                <input type="radio" name="merge_notes" value="a" checked>
+                <span class="merge-notes-preview">${this.esc(notesA || '(empty)')}</span>
+              </label>
+              <label class="merge-detail-radio ${!notesB ? 'empty' : ''}">
+                <input type="radio" name="merge_notes" value="b">
+                <span class="merge-notes-preview">${this.esc(notesB || '(empty)')}</span>
+              </label>
+              ${bothHaveNotes ? `
+                <label class="merge-detail-radio">
+                  <input type="radio" name="merge_notes" value="combine">
+                  <span>Combine both notes</span>
+                </label>
+              ` : ''}
+            </div>
+          </div>
+        `;
+      };
+
+      const modalContent = `
+        <div class="modal-header">
+          <div class="modal-title">Merge Contacts</div>
+          <button class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="text-sm text-secondary mb-4">For each field, select which value to keep:</div>
+          <div class="merge-detail-fields">
+            ${radioField('Name', 'name',
+              Contacts.getFullName(contactA),
+              Contacts.getFullName(contactB)
+            )}
+            ${checkboxField('Emails', emailsA, emailsB, 'emails')}
+            ${checkboxField('Phones', phonesA, phonesB, 'phones')}
+            ${radioField('Company', 'company', contactA.company, contactB.company)}
+            ${radioField('Title', 'title', contactA.title, contactB.title)}
+            ${radioField('Birthday', 'birthday', contactA.birthday, contactB.birthday)}
+            ${notesField()}
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary modal-close">Cancel</button>
+          <button type="button" class="btn btn-primary" id="merge-confirm-btn">Merge & Save</button>
+        </div>
+      `;
+
+      // Replace modal content
+      const modal = overlay.querySelector('.modal');
+      modal.innerHTML = modalContent;
+
+      // Re-bind close buttons
+      modal.querySelectorAll('.modal-close').forEach(btn => {
+        btn.addEventListener('click', () => this.closeModal(overlay));
+      });
+
+      // Merge & Save handler
+      modal.querySelector('#merge-confirm-btn').addEventListener('click', async () => {
+        const btn = modal.querySelector('#merge-confirm-btn');
+        btn.disabled = true;
+        btn.textContent = 'Merging...';
+
+        try {
+          const selectedData = {};
+
+          // Name (radio)
+          const nameChoice = modal.querySelector('input[name="merge_name"]:checked')?.value;
+          const nameSource = nameChoice === 'b' ? contactB : contactA;
+          selectedData.first_name = nameSource.first_name || '';
+          selectedData.last_name = nameSource.last_name || '';
+
+          // Company (radio)
+          const companyRadio = modal.querySelector('input[name="merge_company"]:checked');
+          if (companyRadio) {
+            selectedData.company = companyRadio.value === 'b' ? (contactB.company || '') : (contactA.company || '');
+          }
+
+          // Title (radio)
+          const titleRadio = modal.querySelector('input[name="merge_title"]:checked');
+          if (titleRadio) {
+            selectedData.title = titleRadio.value === 'b' ? (contactB.title || '') : (contactA.title || '');
+          }
+
+          // Birthday (radio)
+          const birthdayRadio = modal.querySelector('input[name="merge_birthday"]:checked');
+          if (birthdayRadio) {
+            selectedData.birthday = birthdayRadio.value === 'b' ? (contactB.birthday || '') : (contactA.birthday || '');
+          }
+
+          // Notes (radio with combine option)
+          const notesRadio = modal.querySelector('input[name="merge_notes"]:checked');
+          if (notesRadio) {
+            if (notesRadio.value === 'combine') {
+              selectedData.notes = `${contactA.notes || ''}\n\n--- Merged ---\n${contactB.notes || ''}`;
+            } else if (notesRadio.value === 'b') {
+              selectedData.notes = contactB.notes || '';
+            } else {
+              selectedData.notes = contactA.notes || '';
+            }
+          }
+
+          // Emails (checkboxes)
+          const emailCheckboxes = modal.querySelectorAll('input[name="merge_emails"]:checked');
+          selectedData.emails = Array.from(emailCheckboxes).map(cb => ({
+            value: cb.dataset.value,
+            label: cb.dataset.label
+          }));
+
+          // Phones (checkboxes)
+          const phoneCheckboxes = modal.querySelectorAll('input[name="merge_phones"]:checked');
+          selectedData.phones = Array.from(phoneCheckboxes).map(cb => ({
+            value: cb.dataset.value,
+            label: cb.dataset.label
+          }));
+
+          await ImportExport.mergeContactsWithSelections(aId, bId, selectedData);
+          this.toast('Contacts merged');
+          this.closeModal(overlay);
+          await this.loadData();
+          this.renderSidebar();
+          if (this.state.view === 'table') this.renderTable();
+        } catch (err) {
+          this.toast(err.message, 'error');
+          btn.disabled = false;
+          btn.textContent = 'Merge & Save';
+        }
+      });
+    } catch (err) {
+      this.toast('Failed to load contacts: ' + err.message, 'error');
+      this.closeModal(overlay);
     }
   },
 

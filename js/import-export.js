@@ -217,20 +217,20 @@ const ImportExport = {
       }
     }
 
-    // Email cross-match: check if ANY email in A matches ANY email in B
+    // Email cross-match: only count when BOTH contacts have emails
     const emailsA = Contacts.getEmails(a);
     const emailsB = Contacts.getEmails(b);
-    if (emailsA.length > 0 || emailsB.length > 0) {
+    if (emailsA.length > 0 && emailsB.length > 0) {
       maxScore += 1;
       const emailSetA = new Set(emailsA.map(e => e.value.toLowerCase().trim()));
       const hasMatch = emailsB.some(e => emailSetA.has(e.value.toLowerCase().trim()));
       if (hasMatch) score += 1;
     }
 
-    // Phone cross-match: normalize digits, check if ANY phone matches
+    // Phone cross-match: only count when BOTH contacts have phones
     const phonesA = Contacts.getPhones(a);
     const phonesB = Contacts.getPhones(b);
-    if (phonesA.length > 0 || phonesB.length > 0) {
+    if (phonesA.length > 0 && phonesB.length > 0) {
       maxScore += 1;
       const phoneSetA = new Set(phonesA.map(p => p.value.replace(/\D/g, '')));
       const hasMatch = phonesB.some(p => phoneSetA.has(p.value.replace(/\D/g, '')));
@@ -354,5 +354,85 @@ const ImportExport = {
     await Contacts.delete(secondaryId);
 
     return await Contacts.get(primaryId);
+  },
+
+  // Merge two contacts with user-selected field values
+  async mergeContactsWithSelections(keepId, deleteId, selectedData) {
+    const updates = {};
+
+    if (selectedData.first_name !== undefined) updates.first_name = selectedData.first_name;
+    if (selectedData.last_name !== undefined) updates.last_name = selectedData.last_name;
+    if (selectedData.company !== undefined) updates.company = selectedData.company || null;
+    if (selectedData.title !== undefined) updates.title = selectedData.title || null;
+    if (selectedData.birthday !== undefined) updates.birthday = selectedData.birthday || null;
+    if (selectedData.notes !== undefined) updates.notes = selectedData.notes || null;
+
+    // Emails & phones come as arrays from the merge UI
+    if (selectedData.emails) {
+      updates.emails = JSON.stringify(selectedData.emails);
+      updates.email = selectedData.emails[0]?.value || null;
+    }
+    if (selectedData.phones) {
+      updates.phones = JSON.stringify(selectedData.phones);
+      updates.phone = selectedData.phones[0]?.value || null;
+    }
+
+    if (Object.keys(updates).length > 0) {
+      await Contacts.update(keepId, updates);
+    }
+
+    // Move interactions from deleted contact to kept contact
+    await supabase
+      .from('interactions')
+      .update({ contact_id: keepId })
+      .eq('contact_id', deleteId);
+
+    // Move group memberships (ignore duplicates)
+    const { data: secGroups } = await supabase
+      .from('contact_groups')
+      .select('group_id')
+      .eq('contact_id', deleteId);
+
+    if (secGroups) {
+      for (const sg of secGroups) {
+        await Contacts.addToGroup(keepId, sg.group_id).catch(() => {});
+      }
+    }
+
+    // Move custom field values (don't overwrite existing)
+    const { data: secFields } = await supabase
+      .from('custom_field_values')
+      .select('*')
+      .eq('contact_id', deleteId);
+
+    const { data: priFields } = await supabase
+      .from('custom_field_values')
+      .select('custom_field_id')
+      .eq('contact_id', keepId);
+
+    const priFieldIds = new Set((priFields || []).map(f => f.custom_field_id));
+
+    if (secFields) {
+      for (const sf of secFields) {
+        if (!priFieldIds.has(sf.custom_field_id)) {
+          await supabase.from('custom_field_values').insert({
+            contact_id: keepId,
+            custom_field_id: sf.custom_field_id,
+            value: sf.value
+          }).catch(() => {});
+        }
+      }
+    }
+
+    // Move reminders
+    await supabase
+      .from('reminders')
+      .update({ contact_id: keepId })
+      .eq('contact_id', deleteId);
+
+    // Delete the other contact
+    await Contacts.delete(deleteId);
+
+    return await Contacts.get(keepId);
   }
 };
