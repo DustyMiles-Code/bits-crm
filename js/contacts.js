@@ -12,7 +12,7 @@ const Contacts = {
 
     if (search) {
       query = query.or(
-        `first_name.ilike.%${search}%,last_name.ilike.%${search}%,email.ilike.%${search}%,company.ilike.%${search}%,phone.ilike.%${search}%,notes.ilike.%${search}%,title.ilike.%${search}%`
+        `first_name.ilike.%${search}%,last_name.ilike.%${search}%,email.ilike.%${search}%,company.ilike.%${search}%,phone.ilike.%${search}%,notes.ilike.%${search}%,title.ilike.%${search}%,bio.ilike.%${search}%`
       );
     }
 

@@ -18,6 +18,7 @@ CREATE TABLE contacts (
   title TEXT,
   notes TEXT,
   avatar_url TEXT,
+  bio TEXT,
   birthday DATE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -273,3 +274,9 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE TRIGGER on_interaction_insert
   AFTER INSERT ON interactions
   FOR EACH ROW EXECUTE FUNCTION update_kit_on_interaction();
+
+-- ============================================
+-- MIGRATIONS (run manually in Supabase SQL Editor)
+-- ============================================
+-- Add bio column to contacts (if upgrading from previous schema):
+-- ALTER TABLE contacts ADD COLUMN IF NOT EXISTS bio TEXT;

@@ -67,6 +67,10 @@ const Reminders = {
     return this.update(id, { completed: !reminder.completed });
   },
 
+  async reschedule(id, newDate) {
+    return this.update(id, { due_date: new Date(newDate).toISOString() });
+  },
+
   async delete(id) {
     const { error } = await supabase
       .from('reminders')

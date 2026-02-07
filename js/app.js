@@ -26,6 +26,9 @@ const App = {
     this.bindEvents();
     await this.loadData();
     this.render();
+    this.checkDueReminders();
+    // Re-check for due reminders every 30 minutes
+    setInterval(() => this.checkDueReminders(), 30 * 60 * 1000);
   },
 
   cacheElements() {
@@ -34,6 +37,7 @@ const App = {
     this.sidebarOverlay = document.getElementById('sidebar-overlay');
     this.sidebarToggle = document.getElementById('sidebar-toggle');
     this.searchInput = document.getElementById('search-input');
+    this.searchClear = document.getElementById('search-clear');
     this.groupsList = document.getElementById('groups-list');
     this.allContactsBtn = document.getElementById('all-contacts-btn');
     this.addGroupBtn = document.getElementById('add-group-btn');
@@ -58,11 +62,21 @@ const App = {
     let searchTimer;
     this.searchInput.addEventListener('input', (e) => {
       clearTimeout(searchTimer);
+      this.searchClear.hidden = !e.target.value;
       searchTimer = setTimeout(() => {
         this.clearSelection();
         this.state.searchQuery = e.target.value;
         this.loadContacts().then(() => this.renderTable());
       }, 300);
+    });
+
+    // Search clear button
+    this.searchClear.addEventListener('click', () => {
+      this.searchInput.value = '';
+      this.searchClear.hidden = true;
+      this.state.searchQuery = '';
+      this.clearSelection();
+      this.loadContacts().then(() => this.renderTable());
     });
 
     // Sidebar toggle (mobile)
@@ -476,7 +490,10 @@ const App = {
         return `<span class="contact-email-text">${this.esc(Contacts.getPrimaryEmail(contact) || '—')}</span>`;
       case 'phone': {
         const phones = Contacts.getPhones(contact);
-        return this.esc(phones.length > 0 ? phones[0].value : '—');
+        if (phones.length > 0) {
+          return `<a href="tel:${this.esc(phones[0].value)}" class="profile-meta-link" onclick="event.stopPropagation()">${this.esc(phones[0].value)}</a>`;
+        }
+        return '—';
       }
       case 'company':
         return this.esc(contact.company || '—');
@@ -715,7 +732,7 @@ const App = {
                 ${Contacts.getPhones(contact).map(p => `
                   <div class="profile-meta-item">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-                    ${this.esc(p.value)}<span class="profile-meta-label">(${this.esc(p.label)})</span>
+                    <a href="tel:${this.esc(p.value)}" class="profile-meta-link">${this.esc(p.value)}</a><span class="profile-meta-label">(${this.esc(p.label)})</span>
                   </div>
                 `).join('')}
                 ${contact.birthday ? `
@@ -741,6 +758,12 @@ const App = {
               </button>
             </div>
           </div>
+
+          ${contact.bio ? `
+          <div class="profile-bio">
+            <div class="profile-bio-text">${this.esc(contact.bio)}</div>
+          </div>
+          ` : ''}
 
           <div class="profile-grid">
             <!-- Groups -->
@@ -848,9 +871,16 @@ const App = {
                       <div class="reminder-due ${Reminders.isOverdue(r) ? 'overdue' : ''}">${Reminders.formatDueDate(r.due_date)}</div>
                       ${r.is_recurring ? `<div class="reminder-recurring">Repeats every ${r.recurrence_interval}d</div>` : ''}
                     </div>
-                    <button class="btn-icon reminder-delete" data-id="${r.id}" title="Delete">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                    </button>
+                    <div class="reminder-actions">
+                      ${!r.completed ? `
+                        <button class="btn-icon reminder-reschedule" data-id="${r.id}" title="Reschedule">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                        </button>
+                      ` : ''}
+                      <button class="btn-icon reminder-delete" data-id="${r.id}" title="Delete">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                      </button>
+                    </div>
                   </div>
                 `).join('') : '<div class="text-tertiary text-sm" style="padding: 12px 0">No reminders</div>'}
               </div>
@@ -992,6 +1022,14 @@ const App = {
       });
     });
 
+    // Reschedule reminder
+    document.querySelectorAll('.reminder-reschedule').forEach(el => {
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.showRescheduleModal(el.dataset.id);
+      });
+    });
+
     // Delete reminder
     document.querySelectorAll('.reminder-delete').forEach(el => {
       el.addEventListener('click', async (e) => {
@@ -1047,6 +1085,43 @@ const App = {
 
   async loadGroups() {
     this.state.groups = await Groups.list();
+  },
+
+  // ── Reminder Notifications ─────────────────────
+  async checkDueReminders() {
+    try {
+      const reminders = await Reminders.listAll();
+      const today = new Date();
+      today.setHours(23, 59, 59, 999);
+      const dueReminders = reminders.filter(r => new Date(r.due_date) <= today);
+
+      if (dueReminders.length === 0) return;
+
+      // Show in-app toast
+      const count = dueReminders.length;
+      this.toast(`You have ${count} reminder${count > 1 ? 's' : ''} due today or overdue`, 'warning');
+
+      // Request browser notification permission and show notifications
+      if ('Notification' in window) {
+        if (Notification.permission === 'default') {
+          await Notification.requestPermission();
+        }
+        if (Notification.permission === 'granted') {
+          dueReminders.forEach(r => {
+            const contactName = r.contacts
+              ? [r.contacts.first_name, r.contacts.last_name].filter(Boolean).join(' ')
+              : 'Unknown';
+            new Notification('Domain CRM Reminder', {
+              body: `${r.title} — ${contactName}`,
+              icon: 'icons/icon-192.png',
+              tag: `reminder-${r.id}`
+            });
+          });
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to check reminders:', err);
+    }
   },
 
   // ── Selection & Bulk Actions ─────────────────────
@@ -1259,6 +1334,10 @@ const App = {
           <div class="form-group">
             <label class="form-label">Birthday</label>
             <input class="form-input" type="date" name="birthday" value="${contact?.birthday || ''}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Bio</label>
+            <textarea class="form-textarea" name="bio" rows="2" placeholder="Short bio or description...">${this.esc(contact?.bio || '')}</textarea>
           </div>
           <div class="form-group">
             <label class="form-label">Notes</label>
@@ -1710,6 +1789,47 @@ const App = {
           recurrence_interval: fd.get('is_recurring') ? parseInt(fd.get('recurrence_interval')) : null
         });
         this.toast('Reminder created');
+        this.closeModal(overlay);
+        await this.refreshProfile();
+      } catch (err) {
+        this.toast(err.message, 'error');
+      }
+    });
+  },
+
+  // Reschedule Reminder Modal
+  showRescheduleModal(reminderId) {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowStr = tomorrow.toISOString().slice(0, 10);
+
+    const html = `
+      <div class="modal-header">
+        <div class="modal-title">Reschedule Reminder</div>
+        <button class="modal-close">&times;</button>
+      </div>
+      <form id="reschedule-form">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">New Due Date</label>
+            <input class="form-input" type="date" name="due_date" value="${tomorrowStr}" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary modal-close">Cancel</button>
+          <button type="submit" class="btn btn-primary">Reschedule</button>
+        </div>
+      </form>
+    `;
+
+    const overlay = this.showModal(html);
+    const form = overlay.querySelector('#reschedule-form');
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const newDate = form.querySelector('[name="due_date"]').value;
+      try {
+        await Reminders.reschedule(reminderId, newDate);
+        this.toast('Reminder rescheduled');
         this.closeModal(overlay);
         await this.refreshProfile();
       } catch (err) {
