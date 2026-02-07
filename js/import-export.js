@@ -10,8 +10,8 @@ const ImportExport = {
     const rows = contacts.map(c => [
       c.first_name || '',
       c.last_name || '',
-      c.email || '',
-      c.phone || '',
+      Contacts.getPrimaryEmail(c) || '',
+      Contacts.getPrimaryPhone(c) || '',
       c.company || '',
       c.title || '',
       c.birthday || '',
@@ -152,6 +152,14 @@ const ImportExport = {
 
         if (!contact.first_name) contact.first_name = contact.email || 'Unknown';
 
+        // Wrap single email/phone into JSONB arrays
+        if (contact.email) {
+          contact.emails = JSON.stringify([{ value: contact.email, label: 'personal' }]);
+        }
+        if (contact.phone) {
+          contact.phones = JSON.stringify([{ value: contact.phone, label: 'personal' }]);
+        }
+
         const { error } = await supabase.from('contacts').insert(contact);
         if (error) throw error;
         results.imported++;
@@ -177,7 +185,7 @@ const ImportExport = {
         if (seen.has(key)) continue;
 
         const score = this.similarityScore(a, b);
-        if (score >= 0.6) {
+        if (score >= 0.45) {
           seen.add(key);
           pairs.push({ a, b, score });
         }
@@ -189,38 +197,53 @@ const ImportExport = {
 
   similarityScore(a, b) {
     let score = 0;
-    let checks = 0;
+    let maxScore = 0;
 
-    // Email match is strongest signal
-    if (a.email && b.email) {
-      checks++;
-      if (a.email.toLowerCase() === b.email.toLowerCase()) score += 1;
-    }
-
-    // Name similarity
+    // Name matching (weighted heavily)
     const nameA = `${a.first_name || ''} ${a.last_name || ''}`.toLowerCase().trim();
     const nameB = `${b.first_name || ''} ${b.last_name || ''}`.toLowerCase().trim();
     if (nameA && nameB) {
-      checks++;
-      if (nameA === nameB) score += 1;
-      else if (nameA.includes(nameB) || nameB.includes(nameA)) score += 0.7;
+      maxScore += 1;
+      if (nameA === nameB) {
+        score += 1;
+      } else {
+        const firstA = (a.first_name || '').toLowerCase().trim();
+        const firstB = (b.first_name || '').toLowerCase().trim();
+        if (firstA && firstB && firstA === firstB) {
+          score += 0.6;
+        } else if (nameA.includes(nameB) || nameB.includes(nameA)) {
+          score += 0.5;
+        }
+      }
     }
 
-    // Phone match
-    if (a.phone && b.phone) {
-      checks++;
-      const phoneA = a.phone.replace(/\D/g, '');
-      const phoneB = b.phone.replace(/\D/g, '');
-      if (phoneA === phoneB) score += 1;
+    // Email cross-match: check if ANY email in A matches ANY email in B
+    const emailsA = Contacts.getEmails(a);
+    const emailsB = Contacts.getEmails(b);
+    if (emailsA.length > 0 || emailsB.length > 0) {
+      maxScore += 1;
+      const emailSetA = new Set(emailsA.map(e => e.value.toLowerCase().trim()));
+      const hasMatch = emailsB.some(e => emailSetA.has(e.value.toLowerCase().trim()));
+      if (hasMatch) score += 1;
+    }
+
+    // Phone cross-match: normalize digits, check if ANY phone matches
+    const phonesA = Contacts.getPhones(a);
+    const phonesB = Contacts.getPhones(b);
+    if (phonesA.length > 0 || phonesB.length > 0) {
+      maxScore += 1;
+      const phoneSetA = new Set(phonesA.map(p => p.value.replace(/\D/g, '')));
+      const hasMatch = phonesB.some(p => phoneSetA.has(p.value.replace(/\D/g, '')));
+      if (hasMatch) score += 1;
     }
 
     // Company match
     if (a.company && b.company) {
-      checks++;
+      maxScore += 0.5;
       if (a.company.toLowerCase() === b.company.toLowerCase()) score += 0.5;
     }
 
-    return checks > 0 ? score / checks : 0;
+    return maxScore > 0 ? score / maxScore : 0;
   },
 
   // Merge two contacts (keep primary, merge data from secondary, delete secondary)
@@ -232,7 +255,7 @@ const ImportExport = {
 
     // Merge: fill in blank fields from secondary
     const updates = {};
-    const fields = ['last_name', 'email', 'phone', 'company', 'title', 'notes', 'birthday'];
+    const fields = ['last_name', 'company', 'title', 'notes', 'birthday'];
     fields.forEach(f => {
       if (!primary[f] && secondary[f]) {
         updates[f] = secondary[f];
@@ -242,6 +265,36 @@ const ImportExport = {
     // Merge notes
     if (primary.notes && secondary.notes && primary.notes !== secondary.notes) {
       updates.notes = `${primary.notes}\n\n--- Merged ---\n${secondary.notes}`;
+    }
+
+    // Merge emails JSONB arrays
+    const priEmails = Contacts.getEmails(primary);
+    const secEmails = Contacts.getEmails(secondary);
+    const mergedEmails = [...priEmails];
+    secEmails.forEach(se => {
+      const normalized = se.value.toLowerCase().trim();
+      if (!mergedEmails.some(e => e.value.toLowerCase().trim() === normalized)) {
+        mergedEmails.push(se);
+      }
+    });
+    if (mergedEmails.length > priEmails.length) {
+      updates.emails = JSON.stringify(mergedEmails);
+      updates.email = mergedEmails[0]?.value || null;
+    }
+
+    // Merge phones JSONB arrays
+    const priPhones = Contacts.getPhones(primary);
+    const secPhones = Contacts.getPhones(secondary);
+    const mergedPhones = [...priPhones];
+    secPhones.forEach(sp => {
+      const normalized = sp.value.replace(/\D/g, '');
+      if (!mergedPhones.some(p => p.value.replace(/\D/g, '') === normalized)) {
+        mergedPhones.push(sp);
+      }
+    });
+    if (mergedPhones.length > priPhones.length) {
+      updates.phones = JSON.stringify(mergedPhones);
+      updates.phone = mergedPhones[0]?.value || null;
     }
 
     if (Object.keys(updates).length > 0) {

@@ -12,7 +12,7 @@ const Contacts = {
 
     if (search) {
       query = query.or(
-        `first_name.ilike.%${search}%,last_name.ilike.%${search}%,email.ilike.%${search}%,company.ilike.%${search}%,phone.ilike.%${search}%,notes.ilike.%${search}%`
+        `first_name.ilike.%${search}%,last_name.ilike.%${search}%,email.ilike.%${search}%,company.ilike.%${search}%,phone.ilike.%${search}%,notes.ilike.%${search}%,emails::text.ilike.%${search}%,phones::text.ilike.%${search}%`
       );
     }
 
@@ -133,6 +133,36 @@ const Contacts = {
 
   getFullName(contact) {
     return [contact.first_name, contact.last_name].filter(Boolean).join(' ');
+  },
+
+  getEmails(contact) {
+    try {
+      const emails = typeof contact.emails === 'string' ? JSON.parse(contact.emails) : contact.emails;
+      if (Array.isArray(emails) && emails.length > 0) return emails;
+    } catch (e) {}
+    // Fallback to legacy field
+    if (contact.email) return [{ value: contact.email, label: 'personal' }];
+    return [];
+  },
+
+  getPhones(contact) {
+    try {
+      const phones = typeof contact.phones === 'string' ? JSON.parse(contact.phones) : contact.phones;
+      if (Array.isArray(phones) && phones.length > 0) return phones;
+    } catch (e) {}
+    // Fallback to legacy field
+    if (contact.phone) return [{ value: contact.phone, label: 'personal' }];
+    return [];
+  },
+
+  getPrimaryEmail(contact) {
+    const emails = this.getEmails(contact);
+    return emails.length > 0 ? emails[0].value : '';
+  },
+
+  getPrimaryPhone(contact) {
+    const phones = this.getPhones(contact);
+    return phones.length > 0 ? phones[0].value : '';
   },
 
   getKitStatus(contact) {

@@ -63,6 +63,23 @@ const App = {
     this.sidebarToggle.addEventListener('click', () => this.toggleSidebar());
     this.sidebarOverlay.addEventListener('click', () => this.toggleSidebar(false));
 
+    // Logo home link
+    const logoLink = document.getElementById('logo-home-link');
+    if (logoLink) {
+      logoLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        this.state.currentGroupId = null;
+        this.state.view = 'table';
+        this.state.currentContactId = null;
+        this.updateSidebarActive();
+        this.loadContacts().then(() => {
+          this.renderHeader();
+          this.renderTable();
+        });
+        this.toggleSidebar(false);
+      });
+    }
+
     // All contacts
     this.allContactsBtn.addEventListener('click', () => {
       this.state.currentGroupId = null;
@@ -302,7 +319,7 @@ const App = {
                     </div>
                   </div>
                 </td>
-                <td class="contact-email-text">${this.esc(c.email || '—')}</td>
+                <td class="contact-email-text">${this.esc(Contacts.getPrimaryEmail(c) || '—')}</td>
                 <td>${this.esc(c.company || '—')}</td>
                 <td>${this.renderLastInteraction(c)}</td>
                 <td>${this.renderKitStatus(c)}</td>
@@ -385,18 +402,18 @@ const App = {
                 </div>
               ` : ''}
               <div class="profile-meta">
-                ${contact.email ? `
+                ${Contacts.getEmails(contact).map(e => `
                   <div class="profile-meta-item">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-                    ${this.esc(contact.email)}
+                    ${this.esc(e.value)}<span class="profile-meta-label">(${this.esc(e.label)})</span>
                   </div>
-                ` : ''}
-                ${contact.phone ? `
+                `).join('')}
+                ${Contacts.getPhones(contact).map(p => `
                   <div class="profile-meta-item">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-                    ${this.esc(contact.phone)}
+                    ${this.esc(p.value)}<span class="profile-meta-label">(${this.esc(p.label)})</span>
                   </div>
-                ` : ''}
+                `).join('')}
                 ${contact.birthday ? `
                   <div class="profile-meta-item">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
@@ -722,6 +739,33 @@ const App = {
   // Contact Modal
   showContactModal(contact = null) {
     const isEdit = !!contact;
+    const existingEmails = contact ? Contacts.getEmails(contact) : [];
+    const existingPhones = contact ? Contacts.getPhones(contact) : [];
+
+    const labelOptions = ['personal', 'work', 'other'];
+    const buildLabelSelect = (selected) => labelOptions.map(l =>
+      `<option value="${l}" ${l === selected ? 'selected' : ''}>${l.charAt(0).toUpperCase() + l.slice(1)}</option>`
+    ).join('');
+
+    const buildEmailRow = (email = { value: '', label: 'personal' }) => `
+      <div class="multi-value-row">
+        <input class="form-input" type="email" placeholder="email@example.com" value="${this.esc(email.value)}">
+        <select class="form-select multi-value-label">${buildLabelSelect(email.label)}</select>
+        <button type="button" class="btn btn-ghost btn-sm btn-remove" title="Remove">&times;</button>
+      </div>
+    `;
+
+    const buildPhoneRow = (phone = { value: '', label: 'personal' }) => `
+      <div class="multi-value-row">
+        <input class="form-input" type="tel" placeholder="555-0100" value="${this.esc(phone.value)}">
+        <select class="form-select multi-value-label">${buildLabelSelect(phone.label)}</select>
+        <button type="button" class="btn btn-ghost btn-sm btn-remove" title="Remove">&times;</button>
+      </div>
+    `;
+
+    const emailRows = existingEmails.length > 0 ? existingEmails.map(e => buildEmailRow(e)).join('') : buildEmailRow();
+    const phoneRows = existingPhones.length > 0 ? existingPhones.map(p => buildPhoneRow(p)).join('') : buildPhoneRow();
+
     const html = `
       <div class="modal-header">
         <div class="modal-title">${isEdit ? 'Edit Contact' : 'New Contact'}</div>
@@ -740,12 +784,14 @@ const App = {
             </div>
           </div>
           <div class="form-group">
-            <label class="form-label">Email</label>
-            <input class="form-input" type="email" name="email" value="${this.esc(contact?.email || '')}">
+            <label class="form-label">Emails</label>
+            <div id="emails-container">${emailRows}</div>
+            <button type="button" class="multi-value-add" id="add-email-btn">+ Add Email</button>
           </div>
           <div class="form-group">
-            <label class="form-label">Phone</label>
-            <input class="form-input" name="phone" value="${this.esc(contact?.phone || '')}">
+            <label class="form-label">Phones</label>
+            <div id="phones-container">${phoneRows}</div>
+            <button type="button" class="multi-value-add" id="add-phone-btn">+ Add Phone</button>
           </div>
           <div class="form-row">
             <div class="form-group">
@@ -773,7 +819,26 @@ const App = {
       </form>
     `;
 
-    const overlay = this.showModal(html);
+    const overlay = this.showModal(html, {
+      onOpen: (ol) => {
+        const emailsContainer = ol.querySelector('#emails-container');
+        const phonesContainer = ol.querySelector('#phones-container');
+
+        ol.querySelector('#add-email-btn').addEventListener('click', () => {
+          emailsContainer.insertAdjacentHTML('beforeend', buildEmailRow());
+          this.bindMultiValueRemove(emailsContainer);
+        });
+
+        ol.querySelector('#add-phone-btn').addEventListener('click', () => {
+          phonesContainer.insertAdjacentHTML('beforeend', buildPhoneRow());
+          this.bindMultiValueRemove(phonesContainer);
+        });
+
+        this.bindMultiValueRemove(emailsContainer);
+        this.bindMultiValueRemove(phonesContainer);
+      }
+    });
+
     const form = overlay.querySelector('#contact-form');
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -781,6 +846,28 @@ const App = {
       const data = Object.fromEntries(fd);
       // Clean empty strings
       Object.keys(data).forEach(k => { if (!data[k]) delete data[k]; });
+
+      // Build emails JSONB array from repeater
+      const emailsContainer = overlay.querySelector('#emails-container');
+      const emails = [];
+      emailsContainer.querySelectorAll('.multi-value-row').forEach(row => {
+        const value = row.querySelector('input').value.trim();
+        const label = row.querySelector('select').value;
+        if (value) emails.push({ value, label });
+      });
+      data.emails = JSON.stringify(emails);
+      data.email = emails.length > 0 ? emails[0].value : null;
+
+      // Build phones JSONB array from repeater
+      const phonesContainer = overlay.querySelector('#phones-container');
+      const phones = [];
+      phonesContainer.querySelectorAll('.multi-value-row').forEach(row => {
+        const value = row.querySelector('input').value.trim();
+        const label = row.querySelector('select').value;
+        if (value) phones.push({ value, label });
+      });
+      data.phones = JSON.stringify(phones);
+      data.phone = phones.length > 0 ? phones[0].value : null;
 
       const btn = form.querySelector('button[type="submit"]');
       btn.disabled = true;
@@ -806,6 +893,20 @@ const App = {
         this.toast(err.message, 'error');
         btn.disabled = false;
       }
+    });
+  },
+
+  bindMultiValueRemove(container) {
+    container.querySelectorAll('.btn-remove').forEach(btn => {
+      btn.onclick = () => {
+        // Keep at least one row
+        if (container.querySelectorAll('.multi-value-row').length > 1) {
+          btn.closest('.multi-value-row').remove();
+        } else {
+          // Clear the input instead of removing
+          btn.closest('.multi-value-row').querySelector('input').value = '';
+        }
+      };
     });
   },
 
@@ -1514,7 +1615,14 @@ const App = {
 
       body.innerHTML = `
         <div class="text-sm text-secondary mb-4">Found ${pairs.length} potential duplicate${pairs.length > 1 ? 's' : ''}. Click "Merge" to combine them.</div>
-        ${pairs.map((p, i) => `
+        ${pairs.map((p, i) => {
+          const renderContactEmails = (c) => Contacts.getEmails(c).map(e =>
+            `<div class="text-sm text-secondary">${this.esc(e.value)} <span class="profile-meta-label">(${this.esc(e.label)})</span></div>`
+          ).join('') || '<div class="text-sm text-secondary">—</div>';
+          const renderContactPhones = (c) => Contacts.getPhones(c).map(ph =>
+            `<div class="text-sm text-secondary">${this.esc(ph.value)} <span class="profile-meta-label">(${this.esc(ph.label)})</span></div>`
+          ).join('') || '';
+          return `
           <div class="merge-pair" data-pair-index="${i}">
             <div class="merge-pair-header">
               <span class="badge badge-warning">${Math.round(p.score * 100)}% match</span>
@@ -1523,19 +1631,19 @@ const App = {
             <div class="merge-contacts">
               <div class="merge-contact">
                 <div class="font-medium">${this.esc(Contacts.getFullName(p.a))}</div>
-                <div class="text-sm text-secondary">${this.esc(p.a.email || '—')}</div>
-                <div class="text-sm text-secondary">${this.esc(p.a.phone || '—')}</div>
+                ${renderContactEmails(p.a)}
+                ${renderContactPhones(p.a)}
                 <div class="text-sm text-secondary">${this.esc(p.a.company || '—')}</div>
               </div>
               <div class="merge-contact">
                 <div class="font-medium">${this.esc(Contacts.getFullName(p.b))}</div>
-                <div class="text-sm text-secondary">${this.esc(p.b.email || '—')}</div>
-                <div class="text-sm text-secondary">${this.esc(p.b.phone || '—')}</div>
+                ${renderContactEmails(p.b)}
+                ${renderContactPhones(p.b)}
                 <div class="text-sm text-secondary">${this.esc(p.b.company || '—')}</div>
               </div>
             </div>
           </div>
-        `).join('')}
+        `}).join('')}
       `;
 
       body.querySelectorAll('.merge-btn').forEach(btn => {

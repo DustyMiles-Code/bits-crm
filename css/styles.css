@@ -123,6 +123,15 @@ a:hover { color: var(--accent-hover); }
   text-align: center;
   margin-bottom: var(--sp-2);
   color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+}
+
+.login-logo-icon {
+  color: var(--accent);
+  flex-shrink: 0;
 }
 
 .login-subtitle {
@@ -377,15 +386,16 @@ a:hover { color: var(--accent-hover); }
   display: flex;
   align-items: center;
   gap: var(--sp-2);
+  text-decoration: none;
+  cursor: pointer;
 }
 
-.sidebar-logo::before {
-  content: '';
-  display: inline-block;
-  width: 24px;
-  height: 24px;
-  background: var(--accent);
-  border-radius: var(--radius-sm);
+.sidebar-logo:hover {
+  color: var(--accent-hover);
+}
+
+.sidebar-logo-icon {
+  color: var(--accent);
   flex-shrink: 0;
 }
 
@@ -1902,6 +1912,58 @@ a:hover { color: var(--accent-hover); }
   .profile-header {
     padding: var(--sp-3);
   }
+}
+
+/* ============================================
+   MULTI-VALUE REPEATER (Email/Phone)
+   ============================================ */
+.multi-value-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.multi-value-row .form-input {
+  flex: 1;
+}
+
+.multi-value-row .form-select.multi-value-label {
+  width: 110px;
+  flex-shrink: 0;
+}
+
+.multi-value-row .btn-remove {
+  flex-shrink: 0;
+  font-size: var(--font-size-lg);
+  color: var(--text-tertiary);
+  padding: var(--sp-1);
+  line-height: 1;
+}
+
+.multi-value-row .btn-remove:hover {
+  color: var(--danger);
+}
+
+.multi-value-add {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-family: var(--font);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  cursor: pointer;
+  padding: var(--sp-1) 0;
+}
+
+.multi-value-add:hover {
+  color: var(--accent-hover);
+}
+
+.profile-meta-label {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-left: 4px;
 }
 
 /* ============================================
