@@ -12,7 +12,8 @@ const App = {
     customFields: [],
     selectedContactIds: new Set(),
     isDragging: false,
-    visibleColumns: new Set(['name', 'email', 'company', 'last_interaction', 'goal_status', 'notes'])
+    visibleColumns: new Set(['name', 'email', 'company', 'last_interaction', 'goal_status', 'notes']),
+    contactFieldValues: {} // { contactId: { fieldId: value } }
   },
 
   // ── Init ──────────────────────────────────────────
@@ -143,6 +144,7 @@ const App = {
       this.state.groups = groups;
       this.state.customFields = customFields;
       await this.loadContacts();
+      await this.loadFieldValues();
       this.setUserInfo();
     } catch (err) {
       this.toast('Failed to load data: ' + err.message, 'error');
@@ -340,16 +342,36 @@ const App = {
     { key: 'notes', label: 'Notes', sortKey: null }
   ],
 
+  getAllColumns() {
+    const cfCols = this.state.customFields.map(f => ({
+      key: `cf_${f.id}`,
+      label: f.name,
+      sortKey: null,
+      isCustomField: true,
+      fieldId: f.id
+    }));
+    return [...this.TABLE_COLUMNS, ...cfCols];
+  },
+
   bindColumnFilter() {
     const btn = document.getElementById('btn-columns');
     const dropdown = document.getElementById('column-filter-dropdown');
     if (!btn || !dropdown) return;
 
     const renderDropdown = () => {
+      const allCols = this.getAllColumns();
+      const hasCf = allCols.some(c => c.isCustomField);
       dropdown.innerHTML = this.TABLE_COLUMNS.map(col => `
         <label class="column-filter-item">
           <input type="checkbox" value="${col.key}" ${this.state.visibleColumns.has(col.key) ? 'checked' : ''}>
           <span>${col.label}</span>
+        </label>
+      `).join('')
+      + (hasCf ? `<div class="column-filter-divider"></div>` : '')
+      + allCols.filter(c => c.isCustomField).map(col => `
+        <label class="column-filter-item">
+          <input type="checkbox" value="${col.key}" ${this.state.visibleColumns.has(col.key) ? 'checked' : ''}>
+          <span>${this.esc(col.label)}</span>
         </label>
       `).join('');
 
@@ -414,6 +436,12 @@ const App = {
       case 'notes':
         return `<div class="notes-preview">${this.esc(contact.notes || '—')}</div>`;
       default:
+        // Custom field columns (cf_<id>)
+        if (col.isCustomField) {
+          const vals = this.state.contactFieldValues[contact.id];
+          const val = vals ? vals[col.fieldId] : null;
+          return `<span class="${val ? '' : 'text-tertiary'}">${this.esc(val || '—')}</span>`;
+        }
         return '—';
     }
   },
@@ -434,7 +462,7 @@ const App = {
       return;
     }
 
-    const visibleCols = this.TABLE_COLUMNS.filter(col => this.state.visibleColumns.has(col.key));
+    const visibleCols = this.getAllColumns().filter(col => this.state.visibleColumns.has(col.key));
 
     const sortIcon = (col) => {
       if (this.state.sortBy !== col) return '<span class="sort-icon">↕</span>';
@@ -912,13 +940,32 @@ const App = {
   },
 
   async refreshProfile() {
-    await Promise.all([this.loadGroups(), this.loadContacts(), this.loadCustomFields()]);
+    await Promise.all([this.loadGroups(), this.loadContacts(), this.loadCustomFields(), this.loadFieldValues()]);
     this.renderSidebar();
     this.renderProfile();
   },
 
   async loadCustomFields() {
     this.state.customFields = await Fields.list();
+  },
+
+  async loadFieldValues() {
+    if (this.state.customFields.length === 0) {
+      this.state.contactFieldValues = {};
+      return;
+    }
+    try {
+      const allValues = await Fields.getAllValues();
+      const map = {};
+      allValues.forEach(v => {
+        if (!map[v.contact_id]) map[v.contact_id] = {};
+        map[v.contact_id][v.custom_field_id] = v.value;
+      });
+      this.state.contactFieldValues = map;
+    } catch (err) {
+      console.warn('Failed to load field values:', err);
+      this.state.contactFieldValues = {};
+    }
   },
 
   async loadGroups() {

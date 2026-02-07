@@ -76,6 +76,14 @@ const Fields = {
     return data;
   },
 
+  async getAllValues() {
+    const { data, error } = await supabase
+      .from('custom_field_values')
+      .select('contact_id, custom_field_id, value');
+    if (error) throw error;
+    return data || [];
+  },
+
   async deleteValueForContact(contactId, fieldId) {
     const { error } = await supabase
       .from('custom_field_values')

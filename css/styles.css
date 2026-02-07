@@ -1791,6 +1791,12 @@ a:hover { color: var(--accent-hover); }
   flex-shrink: 0;
 }
 
+.column-filter-divider {
+  height: 1px;
+  background: var(--border-light);
+  margin: var(--sp-1) var(--sp-3);
+}
+
 /* ============================================
    RESPONSIVE
    ============================================ */
