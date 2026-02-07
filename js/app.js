@@ -289,32 +289,55 @@ const App = {
       this.mainCount.hidden = false;
 
       this.mainActions.innerHTML = `
-        <button class="btn btn-ghost btn-sm" id="btn-import" title="Import CSV">
+        <button class="btn btn-ghost btn-sm desktop-only" id="btn-import" title="Import CSV">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           Import
         </button>
-        <button class="btn btn-ghost btn-sm" id="btn-export" title="Export CSV">
+        <button class="btn btn-ghost btn-sm desktop-only" id="btn-export" title="Export CSV">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
           Export
         </button>
-        <button class="btn btn-ghost btn-sm" id="btn-merge" title="Find duplicates">
+        <button class="btn btn-ghost btn-sm desktop-only" id="btn-merge" title="Find duplicates">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg>
           Merge
         </button>
-        <button class="btn btn-ghost btn-sm" id="btn-custom-fields" title="Manage fields">
+        <button class="btn btn-ghost btn-sm desktop-only" id="btn-custom-fields" title="Manage fields">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v6m0 6v6m8.66-13l-5.2 3m-6.92 4l-5.2 3M1.34 8l5.2 3m6.92 4l5.2 3"/></svg>
           Fields
         </button>
-        <div class="dropdown" id="column-filter-wrapper">
+        <div class="dropdown desktop-only" id="column-filter-wrapper">
           <button class="btn btn-ghost btn-sm" id="btn-columns" title="Toggle columns">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
             Columns
           </button>
           <div class="dropdown-menu column-filter-dropdown" id="column-filter-dropdown" hidden></div>
         </div>
+        <div class="dropdown mobile-only" id="mobile-more-wrapper">
+          <button class="btn btn-ghost btn-sm" id="btn-mobile-more" title="More actions">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+          </button>
+          <div class="dropdown-menu mobile-more-dropdown" id="mobile-more-dropdown" hidden>
+            <button class="dropdown-item" data-action="import">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Import
+            </button>
+            <button class="dropdown-item" data-action="export">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              Export
+            </button>
+            <button class="dropdown-item" data-action="merge">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg>
+              Merge Duplicates
+            </button>
+            <button class="dropdown-item" data-action="fields">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v6m0 6v6m8.66-13l-5.2 3m-6.92 4l-5.2 3M1.34 8l5.2 3m6.92 4l5.2 3"/></svg>
+              Custom Fields
+            </button>
+          </div>
+        </div>
         <button class="btn btn-primary btn-sm" id="btn-add-contact">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Add Contact
+          <span class="btn-add-label">Add Contact</span>
         </button>
       `;
 
@@ -324,6 +347,27 @@ const App = {
       document.getElementById('btn-merge').addEventListener('click', () => this.showMergeModal());
       document.getElementById('btn-custom-fields').addEventListener('click', () => this.showFieldsModal());
       this.bindColumnFilter();
+
+      // Mobile more menu
+      const moreBtn = document.getElementById('btn-mobile-more');
+      const moreDropdown = document.getElementById('mobile-more-dropdown');
+      if (moreBtn && moreDropdown) {
+        moreBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          moreDropdown.hidden = !moreDropdown.hidden;
+        });
+        moreDropdown.querySelectorAll('[data-action]').forEach(item => {
+          item.addEventListener('click', (e) => {
+            moreDropdown.hidden = true;
+            const action = e.currentTarget.dataset.action;
+            if (action === 'import') this.showImportModal();
+            else if (action === 'export') this.handleExport();
+            else if (action === 'merge') this.showMergeModal();
+            else if (action === 'fields') this.showFieldsModal();
+          });
+        });
+        document.addEventListener('click', () => { moreDropdown.hidden = true; });
+      }
     } else {
       this.mainTitle.innerHTML = `
         <button class="btn btn-ghost btn-sm" id="btn-back">

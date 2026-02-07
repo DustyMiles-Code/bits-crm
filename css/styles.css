@@ -411,6 +411,11 @@ a:hover { color: var(--accent-hover); }
   text-decoration: underline;
 }
 
+/* Responsive visibility helpers */
+.mobile-only {
+  display: none !important;
+}
+
 .btn-icon {
   padding: var(--sp-2);
   border: none;
@@ -2100,21 +2105,25 @@ a:hover { color: var(--accent-hover); }
   }
 
   .main-header-actions {
-    flex-wrap: wrap;
-    gap: var(--sp-1);
+    gap: var(--sp-2);
   }
 
-  /* On mobile, show only Add Contact and use icon-only for others */
-  .main-header-actions .btn-ghost {
-    padding: var(--sp-2);
-    font-size: 0; /* hide text */
+  /* Hide desktop-only buttons, show mobile menu */
+  .desktop-only {
+    display: none !important;
   }
-  .main-header-actions .btn-ghost svg {
-    font-size: initial;
+
+  .mobile-only {
+    display: block !important;
   }
+
   .main-header-actions .btn-primary {
     font-size: var(--font-size-sm);
     padding: var(--sp-2) var(--sp-3);
+  }
+
+  .main-header-actions .btn-primary .btn-add-label {
+    display: none;
   }
 
   /* Contact table: card layout on mobile */
@@ -2158,9 +2167,18 @@ a:hover { color: var(--accent-hover); }
     display: none;
   }
 
-  /* Hide column filter on mobile */
-  #column-filter-wrapper {
-    display: none;
+  /* Mobile more dropdown */
+  .mobile-more-dropdown {
+    right: 0;
+    left: auto;
+    min-width: 180px;
+  }
+
+  .mobile-more-dropdown .dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
   }
 
   /* Name cell takes full width */
