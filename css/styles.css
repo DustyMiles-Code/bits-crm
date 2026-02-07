@@ -1607,6 +1607,26 @@ a:hover { color: var(--accent-hover); }
   z-index: 49;
 }
 
+/* PWA standalone: safe area insets for notched phones */
+@supports (padding-top: env(safe-area-inset-top)) {
+  .app-layout {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .main-header {
+    padding-top: max(var(--sp-4), env(safe-area-inset-top));
+  }
+}
+
+/* Tablet */
+@media (max-width: 1024px) {
+  .contacts-table th:nth-child(6),
+  .contacts-table td:nth-child(6) {
+    display: none; /* hide Notes column */
+  }
+}
+
+/* Mobile */
 @media (max-width: 768px) {
   .sidebar {
     position: fixed;
@@ -1615,6 +1635,8 @@ a:hover { color: var(--accent-hover); }
     z-index: 50;
     transition: var(--transition-slow);
     box-shadow: none;
+    width: 280px;
+    min-width: 280px;
   }
 
   .sidebar.open {
@@ -1631,41 +1653,194 @@ a:hover { color: var(--accent-hover); }
   }
 
   .main-body {
-    padding: var(--sp-4);
+    padding: var(--sp-3);
   }
 
   .main-header {
     padding: var(--sp-3) var(--sp-4);
+    gap: var(--sp-2);
   }
 
+  .main-title {
+    font-size: var(--font-size-lg);
+  }
+
+  .main-header-actions {
+    flex-wrap: wrap;
+    gap: var(--sp-1);
+  }
+
+  /* On mobile, show only Add Contact and use icon-only for others */
+  .main-header-actions .btn-ghost {
+    padding: var(--sp-2);
+    font-size: 0; /* hide text */
+  }
+  .main-header-actions .btn-ghost svg {
+    font-size: initial;
+  }
+  .main-header-actions .btn-primary {
+    font-size: var(--font-size-sm);
+    padding: var(--sp-2) var(--sp-3);
+  }
+
+  /* Contact table: card layout on mobile */
+  .contacts-table-wrapper {
+    border: none;
+    background: transparent;
+  }
+
+  .contacts-table,
+  .contacts-table thead,
+  .contacts-table tbody,
+  .contacts-table tr,
+  .contacts-table td {
+    display: block;
+  }
+
+  .contacts-table thead {
+    display: none;
+  }
+
+  .contacts-table tbody tr {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: var(--sp-3);
+    margin-bottom: var(--sp-2);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--sp-2);
+  }
+
+  .contacts-table td {
+    padding: 0;
+    border: none;
+  }
+
+  /* Name cell takes full width */
+  .contacts-table td:nth-child(1) {
+    width: 100%;
+    margin-bottom: var(--sp-1);
+  }
+
+  /* Email + Company inline */
+  .contacts-table td:nth-child(2),
+  .contacts-table td:nth-child(3) {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+  }
+
+  /* Hide less important columns */
+  .contacts-table td:nth-child(4),
+  .contacts-table td:nth-child(6) {
+    display: none;
+  }
+
+  /* Goal status */
+  .contacts-table td:nth-child(5) {
+    margin-left: auto;
+  }
+
+  /* Profile view */
   .profile-grid {
     grid-template-columns: 1fr;
+    gap: var(--sp-4);
   }
 
   .profile-header {
     flex-direction: column;
     align-items: center;
     text-align: center;
+    padding: var(--sp-4);
+    gap: var(--sp-4);
+  }
+
+  .profile-avatar {
+    width: 56px;
+    height: 56px;
+    font-size: var(--font-size-xl);
+  }
+
+  .profile-name {
+    font-size: var(--font-size-xl);
   }
 
   .profile-meta {
     justify-content: center;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--sp-2);
   }
 
   .profile-actions {
     justify-content: center;
+    width: 100%;
+  }
+
+  .profile-actions .btn {
+    flex: 1;
+  }
+
+  .profile-section {
+    padding: var(--sp-4);
+  }
+
+  /* Modals: full screen on mobile */
+  .modal {
+    max-width: 100%;
+    max-height: 100%;
+    height: 100%;
+    border-radius: 0;
+    margin: 0;
   }
 
   .modal-body .form-row {
     grid-template-columns: 1fr;
   }
 
-  .contacts-table-wrapper {
-    overflow-x: auto;
+  /* Login card */
+  .login-card {
+    margin: var(--sp-4);
+    padding: var(--sp-6);
   }
 
-  .contacts-table {
-    min-width: 600px;
+  /* Timeline actions always visible on mobile (no hover) */
+  .timeline-actions {
+    opacity: 1;
+  }
+
+  /* Toast positioning */
+  .toast-container {
+    left: var(--sp-4);
+    right: var(--sp-4);
+    bottom: var(--sp-4);
+  }
+
+  .toast {
+    max-width: 100%;
+  }
+
+  /* Detail rows stack */
+  .detail-row {
+    flex-direction: column;
+    gap: var(--sp-1);
+  }
+
+  .detail-label {
+    width: auto;
+  }
+}
+
+/* Small phones */
+@media (max-width: 380px) {
+  .login-card {
+    padding: var(--sp-5);
+    margin: var(--sp-2);
+  }
+
+  .profile-header {
+    padding: var(--sp-3);
   }
 }
 
