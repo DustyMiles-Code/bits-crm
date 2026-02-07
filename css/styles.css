@@ -357,7 +357,7 @@ a:hover { color: var(--accent-hover); }
   width: var(--sidebar-width);
   min-width: var(--sidebar-width);
   background: var(--bg);
-  border-right: 1px solid var(--border);
+  border-right: 1px solid var(--border-light);
   display: flex;
   flex-direction: column;
   height: 100vh;
@@ -365,15 +365,28 @@ a:hover { color: var(--accent-hover); }
 }
 
 .sidebar-header {
-  padding: var(--sp-5) var(--sp-5) var(--sp-4);
-  border-bottom: 1px solid var(--border-light);
+  padding: var(--sp-5) var(--sp-4) var(--sp-4);
 }
 
 .sidebar-logo {
-  font-size: var(--font-size-lg);
+  font-size: var(--font-size-md);
   font-weight: 700;
-  color: var(--text);
-  margin-bottom: var(--sp-3);
+  color: var(--accent);
+  letter-spacing: -0.02em;
+  margin-bottom: var(--sp-4);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.sidebar-logo::before {
+  content: '';
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  background: var(--accent);
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
 }
 
 .sidebar-search {
@@ -382,9 +395,9 @@ a:hover { color: var(--accent-hover); }
 
 .sidebar-search input {
   width: 100%;
-  padding: var(--sp-2) var(--sp-3) var(--sp-2) 32px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  padding: 10px var(--sp-3) 10px 36px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
   font-family: var(--font);
   font-size: var(--font-size-sm);
   color: var(--text);
@@ -405,7 +418,7 @@ a:hover { color: var(--accent-hover); }
 
 .sidebar-search svg {
   position: absolute;
-  left: var(--sp-2);
+  left: 10px;
   top: 50%;
   transform: translateY(-50%);
   color: var(--text-tertiary);
@@ -415,11 +428,12 @@ a:hover { color: var(--accent-hover); }
 .sidebar-nav {
   flex: 1;
   overflow-y: auto;
-  padding: var(--sp-3) var(--sp-2);
+  padding: var(--sp-3) var(--sp-3);
+  -webkit-overflow-scrolling: touch;
 }
 
 .sidebar-nav::-webkit-scrollbar {
-  width: 4px;
+  width: 3px;
 }
 .sidebar-nav::-webkit-scrollbar-track {
   background: transparent;
@@ -430,37 +444,43 @@ a:hover { color: var(--accent-hover); }
 }
 
 .sidebar-section {
-  margin-bottom: var(--sp-4);
+  margin-bottom: var(--sp-3);
 }
 
 .sidebar-section-title {
-  font-size: var(--font-size-xs);
-  font-weight: 500;
+  font-size: 11px;
+  font-weight: 600;
   color: var(--text-tertiary);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: var(--sp-2) var(--sp-3);
+  letter-spacing: 0.06em;
+  padding: var(--sp-2) var(--sp-3) var(--sp-1);
 }
 
 .sidebar-item {
   display: flex;
   align-items: center;
   gap: var(--sp-3);
-  padding: var(--sp-2) var(--sp-3);
+  padding: 9px var(--sp-3);
   border-radius: var(--radius);
   cursor: pointer;
   transition: var(--transition-fast);
   font-size: var(--font-size-base);
-  color: var(--text);
+  color: var(--text-secondary);
   border: none;
   background: none;
   width: 100%;
   text-align: left;
   font-family: var(--font);
+  -webkit-tap-highlight-color: transparent;
 }
 
 .sidebar-item:hover {
   background: var(--bg-secondary);
+  color: var(--text);
+}
+
+.sidebar-item:active {
+  background: var(--bg-tertiary);
 }
 
 .sidebar-item.active {
@@ -473,9 +493,9 @@ a:hover { color: var(--accent-hover); }
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
+  width: 22px;
   flex-shrink: 0;
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-md);
 }
 
 .sidebar-item-label {
@@ -486,15 +506,18 @@ a:hover { color: var(--accent-hover); }
 }
 
 .sidebar-item-count {
-  font-size: var(--font-size-xs);
+  font-size: 11px;
   color: var(--text-tertiary);
   background: var(--bg-secondary);
-  padding: 1px 6px;
+  padding: 2px 7px;
   border-radius: var(--radius-pill);
+  font-weight: 500;
+  min-width: 20px;
+  text-align: center;
 }
 
 .sidebar-item.active .sidebar-item-count {
-  background: rgba(79, 70, 229, 0.1);
+  background: rgba(79, 70, 229, 0.12);
   color: var(--accent);
 }
 
@@ -502,7 +525,7 @@ a:hover { color: var(--accent-hover); }
   display: flex;
   align-items: center;
   gap: var(--sp-2);
-  padding: var(--sp-2) var(--sp-3);
+  padding: 9px var(--sp-3);
   color: var(--text-tertiary);
   font-size: var(--font-size-sm);
   cursor: pointer;
@@ -512,6 +535,7 @@ a:hover { color: var(--accent-hover); }
   font-family: var(--font);
   border-radius: var(--radius);
   transition: var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
 }
 
 .sidebar-add-group:hover {
@@ -519,8 +543,14 @@ a:hover { color: var(--accent-hover); }
   background: var(--accent-light);
 }
 
+.sidebar-divider {
+  height: 1px;
+  background: var(--border-light);
+  margin: var(--sp-2) var(--sp-3);
+}
+
 .sidebar-footer {
-  padding: var(--sp-3) var(--sp-4);
+  padding: var(--sp-3) var(--sp-3);
   border-top: 1px solid var(--border-light);
 }
 
@@ -528,10 +558,11 @@ a:hover { color: var(--accent-hover); }
   display: flex;
   align-items: center;
   gap: var(--sp-3);
-  padding: var(--sp-2);
+  padding: var(--sp-2) var(--sp-2);
   border-radius: var(--radius);
   cursor: pointer;
   transition: var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
 }
 
 .sidebar-user:hover {
@@ -1630,26 +1661,55 @@ a:hover { color: var(--accent-hover); }
 @media (max-width: 768px) {
   .sidebar {
     position: fixed;
-    left: -280px;
+    left: 0;
     top: 0;
     z-index: 50;
-    transition: var(--transition-slow);
+    transform: translateX(-100%);
+    transition: transform var(--transition-slow);
     box-shadow: none;
-    width: 280px;
-    min-width: 280px;
+    width: 300px;
+    min-width: 300px;
+    border-right: none;
   }
 
   .sidebar.open {
-    left: 0;
+    transform: translateX(0);
     box-shadow: var(--shadow-xl);
+  }
+
+  .sidebar-overlay {
+    transition: opacity var(--transition-slow);
+    opacity: 0;
   }
 
   .sidebar-overlay.open {
     display: block;
+    opacity: 1;
   }
 
   .sidebar-toggle {
     display: flex;
+  }
+
+  .sidebar-header {
+    padding: var(--sp-5) var(--sp-5) var(--sp-4);
+  }
+
+  .sidebar-nav {
+    padding: var(--sp-3) var(--sp-4);
+  }
+
+  .sidebar-item {
+    padding: 12px var(--sp-3);
+    font-size: var(--font-size-md);
+  }
+
+  .sidebar-add-group {
+    padding: 12px var(--sp-3);
+  }
+
+  .sidebar-footer {
+    padding: var(--sp-4) var(--sp-4);
   }
 
   .main-body {

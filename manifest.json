@@ -1,6 +1,6 @@
 {
-  "name": "BITS CRM",
-  "short_name": "CRM",
+  "name": "Domain CRM",
+  "short_name": "Domain CRM",
   "description": "Personal relationship manager",
   "start_url": "/login.html",
   "display": "standalone",
