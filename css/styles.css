@@ -639,6 +639,31 @@ a:hover { color: var(--accent-hover); }
   text-align: center;
 }
 
+.sidebar-item-edit {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  padding: 0;
+  transition: var(--transition-fast);
+}
+
+.sidebar-item:hover .sidebar-item-edit {
+  display: flex;
+}
+
+.sidebar-item-edit:hover {
+  color: var(--accent);
+  background: var(--accent-light);
+}
+
 .sidebar-item.active .sidebar-item-count {
   background: rgba(79, 70, 229, 0.12);
   color: var(--accent);
@@ -1479,8 +1504,8 @@ a:hover { color: var(--accent-hover); }
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: var(--sp-3);
-  padding: var(--sp-4) var(--sp-6);
+  gap: var(--sp-4);
+  padding: var(--sp-5) var(--sp-6);
   border-top: 1px solid var(--border-light);
 }
 
@@ -1515,10 +1540,11 @@ a:hover { color: var(--accent-hover); }
   box-shadow: var(--shadow-lg);
   padding: var(--sp-3);
   display: grid;
-  grid-template-columns: repeat(8, 1fr);
+  grid-template-columns: repeat(8, 32px);
   gap: var(--sp-1);
   z-index: 1001;
-  width: 280px;
+  width: min(296px, calc(100vw - 48px));
+  overflow: hidden;
 }
 
 .emoji-picker-dropdown[hidden] { display: none; }
@@ -1535,6 +1561,9 @@ a:hover { color: var(--accent-hover); }
   border: none;
   background: none;
   font-size: var(--font-size-lg);
+  overflow: hidden;
+  flex-shrink: 0;
+  padding: 0;
 }
 
 .emoji-option:hover {
@@ -2222,6 +2251,10 @@ a:hover { color: var(--accent-hover); }
   .sidebar-item {
     padding: 12px var(--sp-3);
     font-size: var(--font-size-md);
+  }
+
+  .sidebar-item-edit {
+    display: flex;
   }
 
   .sidebar-add-group {
