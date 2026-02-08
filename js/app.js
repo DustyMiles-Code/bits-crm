@@ -1418,12 +1418,12 @@ const App = {
     }
     bar.innerHTML = `
       <span class="bulk-action-bar-count">${count} selected</span>
-      <button class="btn btn-sm btn-bulk-group" id="bulk-add-group-btn">Add to Group</button>
+      <button class="btn btn-sm btn-bulk-group" id="bulk-manage-groups-btn">Manage Groups</button>
       <button class="btn btn-sm btn-bulk-export" id="bulk-export-btn">Export</button>
       <button class="btn btn-sm btn-bulk-delete" id="bulk-delete-btn">Delete</button>
       <button class="btn btn-sm btn-bulk-clear" id="bulk-clear-btn">Clear</button>
     `;
-    bar.querySelector('#bulk-add-group-btn').addEventListener('click', () => this.showBulkAddToGroupModal());
+    bar.querySelector('#bulk-manage-groups-btn').addEventListener('click', () => this.showBulkManageGroupsModal());
     bar.querySelector('#bulk-export-btn').addEventListener('click', () => this.handleExport());
     bar.querySelector('#bulk-delete-btn').addEventListener('click', () => this.handleBulkDelete());
     bar.querySelector('#bulk-clear-btn').addEventListener('click', () => this.clearSelection());
@@ -1450,44 +1450,131 @@ const App = {
     }
   },
 
-  showBulkAddToGroupModal() {
+  showBulkManageGroupsModal() {
     if (this.state.groups.length === 0) {
       this.toast('No groups available. Create a group first.');
       return;
     }
 
+    const ids = Array.from(this.state.selectedContactIds);
+    const selectedContacts = this.state.contacts.filter(c => this.state.selectedContactIds.has(c.id));
+
+    // Calculate group membership: 'all', 'some', or 'none' for each group
+    const groupStates = {};
+    this.state.groups.forEach(g => {
+      const memberCount = selectedContacts.filter(c =>
+        c.contact_groups && c.contact_groups.some(cg => cg.group_id === g.id)
+      ).length;
+      if (memberCount === 0) groupStates[g.id] = 'none';
+      else if (memberCount === ids.length) groupStates[g.id] = 'all';
+      else groupStates[g.id] = 'some';
+    });
+
+    // Track intended changes: null = no change, 'add' = add all, 'remove' = remove all
+    const changes = {};
+
     const html = `
       <div class="modal-header">
-        <div class="modal-title">Add ${this.state.selectedContactIds.size} contacts to group</div>
+        <div class="modal-title">Manage groups for ${ids.length} contact${ids.length > 1 ? 's' : ''}</div>
         <button class="modal-close">&times;</button>
       </div>
       <div class="modal-body">
-        ${this.state.groups.map(g => `
-          <button class="sidebar-item" data-group-id="${g.id}" style="width:100%">
-            <span class="sidebar-item-icon">${g.emoji}</span>
-            <span class="sidebar-item-label">${this.esc(g.name)}</span>
-          </button>
-        `).join('')}
+        <div id="bulk-group-list" style="display:flex;flex-direction:column;gap:4px">
+          ${this.state.groups.map(g => `
+            <label class="column-filter-item" style="padding:10px 12px;cursor:pointer" data-group-id="${g.id}">
+              <input type="checkbox" data-group-id="${g.id}"
+                ${groupStates[g.id] === 'all' ? 'checked' : ''}
+                style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer">
+              <span style="font-size:1.1em;margin-right:4px">${g.emoji}</span>
+              <span style="flex:1">${this.esc(g.name)}</span>
+              <span class="text-xs text-tertiary" id="bulk-group-status-${g.id}">${
+                groupStates[g.id] === 'some' ? `${selectedContacts.filter(c => c.contact_groups?.some(cg => cg.group_id === g.id)).length}/${ids.length}` : ''
+              }</span>
+            </label>
+          `).join('')}
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary modal-close">Cancel</button>
+        <button type="button" class="btn btn-primary" id="bulk-group-save">Apply Changes</button>
       </div>
     `;
 
     const overlay = this.showModal(html);
-    overlay.querySelectorAll('[data-group-id]').forEach(el => {
-      el.addEventListener('click', async () => {
-        const groupId = el.dataset.groupId;
-        const ids = Array.from(this.state.selectedContactIds);
-        try {
-          await Promise.all(ids.map(id => Contacts.addToGroup(id, groupId)));
-          const group = this.state.groups.find(g => g.id === groupId);
-          this.toast(`Added ${ids.length} contact${ids.length > 1 ? 's' : ''} to ${group?.name || 'group'}`);
-          this.closeModal(overlay);
-          this.clearSelection();
-          this.state.groups = await Groups.list();
-          this.renderSidebar();
-        } catch (err) {
-          this.toast(err.message, 'error');
+
+    // Set indeterminate state for 'some' groups
+    this.state.groups.forEach(g => {
+      if (groupStates[g.id] === 'some') {
+        const cb = overlay.querySelector(`input[data-group-id="${g.id}"]`);
+        if (cb) cb.indeterminate = true;
+      }
+    });
+
+    // Handle checkbox clicks - cycle through states
+    overlay.querySelectorAll('input[data-group-id]').forEach(cb => {
+      cb.addEventListener('change', () => {
+        const gid = cb.dataset.groupId;
+        const original = groupStates[gid];
+        if (cb.checked) {
+          // Checked = add all
+          changes[gid] = original === 'all' ? null : 'add';
+          cb.indeterminate = false;
+        } else {
+          // Unchecked = remove all
+          changes[gid] = original === 'none' ? null : 'remove';
+          cb.indeterminate = false;
+        }
+        // Update status label
+        const statusEl = overlay.querySelector(`#bulk-group-status-${gid}`);
+        if (statusEl) {
+          if (changes[gid] === 'add') statusEl.textContent = 'will add all';
+          else if (changes[gid] === 'remove') statusEl.textContent = 'will remove all';
+          else statusEl.textContent = '';
         }
       });
+    });
+
+    // Save button
+    overlay.querySelector('#bulk-group-save').addEventListener('click', async () => {
+      const saveBtn = overlay.querySelector('#bulk-group-save');
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Applying...';
+
+      try {
+        const ops = [];
+        for (const [gid, action] of Object.entries(changes)) {
+          if (!action) continue;
+          if (action === 'add') {
+            ids.forEach(cid => ops.push(Contacts.addToGroup(cid, gid)));
+          } else if (action === 'remove') {
+            ids.forEach(cid => ops.push(Contacts.removeFromGroup(cid, gid)));
+          }
+        }
+
+        if (ops.length === 0) {
+          this.closeModal(overlay);
+          return;
+        }
+
+        await Promise.all(ops);
+
+        const addCount = Object.values(changes).filter(a => a === 'add').length;
+        const removeCount = Object.values(changes).filter(a => a === 'remove').length;
+        const parts = [];
+        if (addCount) parts.push(`added to ${addCount} group${addCount > 1 ? 's' : ''}`);
+        if (removeCount) parts.push(`removed from ${removeCount} group${removeCount > 1 ? 's' : ''}`);
+        this.toast(`${ids.length} contact${ids.length > 1 ? 's' : ''} ${parts.join(' and ')}`);
+
+        this.closeModal(overlay);
+        this.clearSelection();
+        await this.loadData();
+        this.renderSidebar();
+        this.renderTable();
+      } catch (err) {
+        this.toast('Failed: ' + err.message, 'error');
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Apply Changes';
+      }
     });
   },
 
