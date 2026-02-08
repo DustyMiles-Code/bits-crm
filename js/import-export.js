@@ -250,11 +250,12 @@ const ImportExport = {
   },
 
   // Import contacts from parsed CSV
-  async importContacts(rows, mapping, groupId = null) {
+  async importContacts(rows, mapping, groupId = null, onProgress = null) {
     const user = await Auth.getUser();
     const headers = rows[0];
     const dataRows = rows.slice(1);
-    const results = { imported: 0, errors: [], importedIds: [] };
+    const total = dataRows.length;
+    const results = { imported: 0, errors: [], importedIds: [], total };
 
     for (let i = 0; i < dataRows.length; i++) {
       const row = dataRows[i];
@@ -301,6 +302,7 @@ const ImportExport = {
       } catch (err) {
         results.errors.push(`Row ${i + 2}: ${err.message}`);
       }
+      if (onProgress) onProgress(i + 1, total);
     }
 
     return results;

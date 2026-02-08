@@ -2450,24 +2450,44 @@ const App = {
 
     importBtn.addEventListener('click', async () => {
       importBtn.disabled = true;
-      importBtn.textContent = 'Importing...';
+      const totalRows = parsedData.length - 1;
+      importBtn.textContent = `Importing 0/${totalRows}...`;
+
+      // Show progress in step 3
+      step2.hidden = true;
+      step3.hidden = false;
+      const resultsEl = overlay.querySelector('#import-results');
+      resultsEl.innerHTML = `
+        <div class="empty-state" style="padding:24px">
+          <div class="loading-spinner" style="margin:0 auto var(--sp-4)"></div>
+          <div class="empty-state-title" id="import-progress-text">Importing 0/${totalRows}...</div>
+          <div class="text-sm text-secondary mt-2" id="import-progress-pct">0%</div>
+        </div>
+      `;
+
       try {
         const selectedGroupId = overlay.querySelector('#import-group-select').value || null;
-        const results = await ImportExport.importContacts(parsedData, mapping, selectedGroupId);
-        step2.hidden = true;
-        step3.hidden = false;
+        const onProgress = (done, total) => {
+          const pct = Math.round((done / total) * 100);
+          importBtn.textContent = `Importing ${done}/${total}...`;
+          const progText = document.getElementById('import-progress-text');
+          const progPct = document.getElementById('import-progress-pct');
+          if (progText) progText.textContent = `Importing ${done}/${total}...`;
+          if (progPct) progPct.textContent = `${pct}%`;
+        };
+        const results = await ImportExport.importContacts(parsedData, mapping, selectedGroupId, onProgress);
         importBtn.hidden = true;
         const importedGroup = selectedGroupId ? this.state.groups.find(g => g.id === selectedGroupId) : null;
         const groupMsg = importedGroup ? `<div class="text-sm text-secondary mt-2">Added to ${importedGroup.emoji} ${this.esc(importedGroup.name)}</div>` : '';
-        overlay.querySelector('#import-results').innerHTML = `
+        resultsEl.innerHTML = `
           <div class="empty-state" style="padding:24px">
             <div class="empty-state-icon" style="background:var(--success-light)">
               <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
             </div>
-            <div class="empty-state-title">${results.imported} contacts imported</div>
+            <div class="empty-state-title">${results.imported}/${results.total} contacts imported</div>
             ${groupMsg}
             ${results.errors.length > 0 ? `
-              <div class="text-sm text-danger mt-4">${results.errors.length} errors:<br>${results.errors.slice(0, 5).map(e => this.esc(e)).join('<br>')}</div>
+              <div class="text-sm text-danger mt-4">${results.errors.length} skipped:<br>${results.errors.slice(0, 5).map(e => this.esc(e)).join('<br>')}</div>
             ` : ''}
           </div>
         `;
@@ -2478,6 +2498,8 @@ const App = {
         this.toast(err.message, 'error');
         importBtn.disabled = false;
         importBtn.textContent = 'Import';
+        step3.hidden = true;
+        step2.hidden = false;
       }
     });
   },
