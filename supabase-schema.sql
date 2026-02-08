@@ -20,6 +20,7 @@ CREATE TABLE contacts (
   avatar_url TEXT,
   bio TEXT,
   birthday DATE,
+  date_met DATE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -306,10 +307,36 @@ CREATE TRIGGER user_preferences_updated_at
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 -- ============================================
+-- AVATARS STORAGE BUCKET
+-- ============================================
+-- Run in Supabase SQL Editor to create storage bucket and RLS policies:
+--
+-- INSERT INTO storage.buckets (id, name, public) VALUES ('avatars', 'avatars', true);
+--
+-- CREATE POLICY "Authenticated users can upload avatars"
+--   ON storage.objects FOR INSERT
+--   WITH CHECK (bucket_id = 'avatars' AND auth.role() = 'authenticated');
+--
+-- CREATE POLICY "Authenticated users can update own avatars"
+--   ON storage.objects FOR UPDATE
+--   USING (bucket_id = 'avatars' AND auth.role() = 'authenticated');
+--
+-- CREATE POLICY "Authenticated users can delete own avatars"
+--   ON storage.objects FOR DELETE
+--   USING (bucket_id = 'avatars' AND auth.role() = 'authenticated');
+--
+-- CREATE POLICY "Anyone can view avatars"
+--   ON storage.objects FOR SELECT
+--   USING (bucket_id = 'avatars');
+
+-- ============================================
 -- MIGRATIONS (run manually in Supabase SQL Editor)
 -- ============================================
 -- Add bio column to contacts (if upgrading from previous schema):
 -- ALTER TABLE contacts ADD COLUMN IF NOT EXISTS bio TEXT;
+--
+-- Add date_met column to contacts:
+-- ALTER TABLE contacts ADD COLUMN IF NOT EXISTS date_met DATE;
 --
 -- Add user_preferences table (if upgrading from previous schema):
 -- Run the user_preferences CREATE TABLE block above in Supabase SQL Editor.

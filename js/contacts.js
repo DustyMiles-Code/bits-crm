@@ -125,6 +125,54 @@ const Contacts = {
     return contactsResult;
   },
 
+  async uploadAvatar(contactId, file) {
+    const user = await Auth.getUser();
+    const ext = file.name.split('.').pop().toLowerCase();
+    const path = `${user.id}/${contactId}.${ext}`;
+
+    // Remove old avatar first (different extension possible)
+    await this.deleteAvatarFile(contactId);
+
+    const { error: uploadError } = await supabase.storage
+      .from('avatars')
+      .upload(path, file, { upsert: true, contentType: file.type });
+    if (uploadError) throw uploadError;
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('avatars')
+      .getPublicUrl(path);
+
+    // Bust cache with timestamp
+    const avatarUrl = publicUrl + '?t=' + Date.now();
+    await this.update(contactId, { avatar_url: avatarUrl });
+    return avatarUrl;
+  },
+
+  async deleteAvatar(contactId) {
+    await this.deleteAvatarFile(contactId);
+    await this.update(contactId, { avatar_url: null });
+  },
+
+  async deleteAvatarFile(contactId) {
+    const user = await Auth.getUser();
+    const prefix = `${user.id}/${contactId}`;
+    const { data: files } = await supabase.storage
+      .from('avatars')
+      .list(user.id, { search: contactId });
+    if (files && files.length > 0) {
+      const paths = files.map(f => `${user.id}/${f.name}`);
+      await supabase.storage.from('avatars').remove(paths);
+    }
+  },
+
+  renderAvatarHTML(contact, size = 'sm') {
+    const sizeClass = size === 'lg' ? 'profile-avatar' : 'contact-avatar';
+    if (contact.avatar_url) {
+      return `<div class="${sizeClass}"><img src="${contact.avatar_url}" alt="" loading="lazy"></div>`;
+    }
+    return `<div class="${sizeClass}">${this.getInitials(contact)}</div>`;
+  },
+
   getInitials(contact) {
     const first = (contact.first_name || '')[0] || '';
     const last = (contact.last_name || '')[0] || '';

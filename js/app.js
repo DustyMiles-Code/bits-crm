@@ -475,6 +475,7 @@ const App = {
     { key: 'last_interaction', label: 'Last Interaction', sortKey: null },
     { key: 'goal_status', label: 'Goal Status', sortKey: null },
     { key: 'birthday', label: 'Birthday', sortKey: null },
+    { key: 'date_met', label: 'Date Met', sortKey: null },
     { key: 'notes', label: 'Notes', sortKey: null }
   ],
 
@@ -546,7 +547,7 @@ const App = {
       case 'name':
         return `
           <div class="contact-name-cell">
-            <div class="contact-avatar">${Contacts.getInitials(contact)}</div>
+            ${Contacts.renderAvatarHTML(contact, 'sm')}
             <div>
               <div class="contact-name-text">${this.esc(Contacts.getFullName(contact))}</div>
               ${contact.title ? `<div class="contact-company-text">${this.esc(contact.title)}</div>` : ''}
@@ -572,6 +573,10 @@ const App = {
       case 'birthday':
         return contact.birthday
           ? new Date(contact.birthday + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+          : '—';
+      case 'date_met':
+        return contact.date_met
+          ? new Date(contact.date_met + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
           : '—';
       case 'notes':
         return `<div class="notes-preview">${this.esc(contact.notes || '—')}</div>`;
@@ -780,7 +785,13 @@ const App = {
         <div class="profile-view">
           <!-- Header -->
           <div class="profile-header">
-            <div class="profile-avatar">${Contacts.getInitials(contact)}</div>
+            <div class="profile-avatar profile-avatar-clickable" id="profile-avatar-upload" title="Change photo">
+              ${contact.avatar_url ? `<img src="${contact.avatar_url}" alt="">` : Contacts.getInitials(contact)}
+              <div class="profile-avatar-overlay">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              </div>
+              <input type="file" id="profile-avatar-input" accept="image/*" hidden>
+            </div>
             <div class="profile-info">
               <div class="profile-name">${this.esc(Contacts.getFullName(contact))}</div>
               ${contact.title || contact.company ? `
@@ -805,6 +816,12 @@ const App = {
                   <div class="profile-meta-item">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                     ${new Date(contact.birthday + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
+                  </div>
+                ` : ''}
+                ${contact.date_met ? `
+                  <div class="profile-meta-item">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    Met ${new Date(contact.date_met + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
                   </div>
                 ` : ''}
               </div>
@@ -1193,6 +1210,28 @@ const App = {
   },
 
   bindProfileEvents(contact, groups) {
+    // Profile avatar upload
+    const profileAvatarEl = document.getElementById('profile-avatar-upload');
+    const profileAvatarInput = document.getElementById('profile-avatar-input');
+    if (profileAvatarEl && profileAvatarInput) {
+      profileAvatarEl.addEventListener('click', () => profileAvatarInput.click());
+      profileAvatarInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        if (file.size > 5 * 1024 * 1024) {
+          this.toast('Image must be under 5MB', 'error');
+          return;
+        }
+        try {
+          await Contacts.uploadAvatar(contact.id, file);
+          this.toast('Photo updated');
+          this.renderProfile();
+        } catch (err) {
+          this.toast('Upload failed: ' + err.message, 'error');
+        }
+      });
+    }
+
     // Export contact
     document.getElementById('profile-export-btn')?.addEventListener('click', () => {
       this.handleExport([contact]);
@@ -1663,6 +1702,11 @@ const App = {
     const emailRows = existingEmails.length > 0 ? existingEmails.map(e => buildEmailRow(e)).join('') : buildEmailRow();
     const phoneRows = existingPhones.length > 0 ? existingPhones.map(p => buildPhoneRow(p)).join('') : buildPhoneRow();
 
+    const avatarPreview = contact?.avatar_url
+      ? `<img src="${contact.avatar_url}" alt="">`
+      : Contacts.getInitials(contact || { first_name: '', last_name: '' });
+    const hasAvatar = !!contact?.avatar_url;
+
     const html = `
       <div class="modal-header">
         <div class="modal-title">${isEdit ? 'Edit Contact' : 'New Contact'}</div>
@@ -1670,6 +1714,16 @@ const App = {
       </div>
       <form id="contact-form">
         <div class="modal-body">
+          <div class="modal-avatar-upload">
+            <div class="modal-avatar-circle" id="modal-avatar-circle">
+              <div class="modal-avatar-preview" id="modal-avatar-preview">${avatarPreview}</div>
+              <div class="modal-avatar-overlay">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              </div>
+              <input type="file" id="avatar-file-input" accept="image/*" hidden>
+            </div>
+            <a href="#" class="modal-avatar-remove ${hasAvatar ? '' : 'hidden'}" id="modal-avatar-remove">Remove photo</a>
+          </div>
           <div class="form-row">
             <div class="form-group">
               <label class="form-label">First Name *</label>
@@ -1700,9 +1754,15 @@ const App = {
               <input class="form-input" name="title" value="${this.esc(contact?.title || '')}">
             </div>
           </div>
-          <div class="form-group">
-            <label class="form-label">Birthday</label>
-            <input class="form-input" type="date" name="birthday" value="${contact?.birthday || ''}">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Birthday</label>
+              <input class="form-input" type="date" name="birthday" value="${contact?.birthday || ''}">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Date Met</label>
+              <input class="form-input" type="date" name="date_met" value="${contact?.date_met || ''}">
+            </div>
           </div>
           <div class="form-group">
             <label class="form-label">Bio</label>
@@ -1758,6 +1818,57 @@ const App = {
 
         this.bindMultiValueRemove(emailsContainer);
         this.bindMultiValueRemove(phonesContainer);
+
+        // Avatar upload
+        const avatarCircle = ol.querySelector('#modal-avatar-circle');
+        const avatarFileInput = ol.querySelector('#avatar-file-input');
+        const avatarPreviewEl = ol.querySelector('#modal-avatar-preview');
+        const avatarRemoveLink = ol.querySelector('#modal-avatar-remove');
+
+        avatarCircle.addEventListener('click', () => avatarFileInput.click());
+
+        avatarFileInput.addEventListener('change', async (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+          if (file.size > 5 * 1024 * 1024) {
+            this.toast('Image must be under 5MB', 'error');
+            return;
+          }
+          // Show local preview immediately
+          const reader = new FileReader();
+          reader.onload = (ev) => {
+            avatarPreviewEl.innerHTML = `<img src="${ev.target.result}" alt="">`;
+            avatarRemoveLink.classList.remove('hidden');
+          };
+          reader.readAsDataURL(file);
+
+          // Upload if editing existing contact
+          if (isEdit) {
+            try {
+              const url = await Contacts.uploadAvatar(contact.id, file);
+              contact.avatar_url = url;
+              this.toast('Photo uploaded');
+            } catch (err) {
+              this.toast('Upload failed: ' + err.message, 'error');
+            }
+          }
+        });
+
+        avatarRemoveLink.addEventListener('click', async (e) => {
+          e.preventDefault();
+          avatarPreviewEl.innerHTML = Contacts.getInitials(contact || { first_name: ol.querySelector('[name="first_name"]').value || '', last_name: ol.querySelector('[name="last_name"]').value || '' });
+          avatarRemoveLink.classList.add('hidden');
+          avatarFileInput.value = '';
+          if (isEdit && contact.avatar_url) {
+            try {
+              await Contacts.deleteAvatar(contact.id);
+              contact.avatar_url = null;
+              this.toast('Photo removed');
+            } catch (err) {
+              this.toast('Failed to remove photo: ' + err.message, 'error');
+            }
+          }
+        });
 
         // Custom fields toggle
         const cfToggle = ol.querySelector('#custom-fields-toggle');
@@ -1836,6 +1947,16 @@ const App = {
             await Contacts.addToGroup(newContact.id, this.state.currentGroupId);
           }
           this.toast('Contact added');
+        }
+
+        // Upload avatar for new contacts (edit uploads happen immediately)
+        const pendingFile = overlay.querySelector('#avatar-file-input').files[0];
+        if (!isEdit && pendingFile) {
+          try {
+            await Contacts.uploadAvatar(contactId, pendingFile);
+          } catch (err) {
+            console.warn('Avatar upload failed:', err);
+          }
         }
 
         // Save custom field values
@@ -2611,6 +2732,7 @@ const App = {
       { value: 'company', label: 'Company' },
       { value: 'title', label: 'Title' },
       { value: 'birthday', label: 'Birthday' },
+      { value: 'date_met', label: 'Date Met' },
       { value: 'notes', label: 'Notes' }
     ];
 
@@ -3063,6 +3185,7 @@ const App = {
             ${radioField('Company', 'company', contactA.company, contactB.company)}
             ${radioField('Title', 'title', contactA.title, contactB.title)}
             ${radioField('Birthday', 'birthday', contactA.birthday, contactB.birthday)}
+            ${radioField('Date Met', 'date_met', contactA.date_met, contactB.date_met)}
             ${notesField()}
           </div>
         </div>
@@ -3112,6 +3235,12 @@ const App = {
           const birthdayRadio = modal.querySelector('input[name="merge_birthday"]:checked');
           if (birthdayRadio) {
             selectedData.birthday = birthdayRadio.value === 'b' ? (contactB.birthday || '') : (contactA.birthday || '');
+          }
+
+          // Date Met (radio)
+          const dateMetRadio = modal.querySelector('input[name="merge_date_met"]:checked');
+          if (dateMetRadio) {
+            selectedData.date_met = dateMetRadio.value === 'b' ? (contactB.date_met || '') : (contactA.date_met || '');
           }
 
           // Notes (radio with combine option)

@@ -9,6 +9,7 @@ const ImportExport = {
     { key: 'company', label: 'Company', get: c => c.company || '' },
     { key: 'title', label: 'Title', get: c => c.title || '' },
     { key: 'birthday', label: 'Birthday', get: c => c.birthday || '' },
+    { key: 'date_met', label: 'Date Met', get: c => c.date_met || '' },
     { key: 'notes', label: 'Notes', get: c => c.notes || '' },
     { key: 'all_emails', label: 'All Emails', get: c => Contacts.getEmails(c).map(e => e.value).join('; ') },
     { key: 'all_phones', label: 'All Phones', get: c => Contacts.getPhones(c).map(p => p.value).join('; ') }
