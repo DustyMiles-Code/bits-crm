@@ -146,6 +146,8 @@ html {
   font-size: 16px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Prevent overscroll bounce on mobile browsers for app-like feel */
+  overscroll-behavior: none;
 }
 
 body {
@@ -154,6 +156,9 @@ body {
   color: var(--text);
   background: var(--bg);
   line-height: 1.5;
+  /* Prevent pull-to-refresh and overscroll */
+  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
 }
 
 a { color: var(--accent); text-decoration: none; }
@@ -165,6 +170,7 @@ a:hover { color: var(--accent-hover); }
 .login-page {
   display: flex;
   min-height: 100vh;
+  min-height: 100dvh;
   align-items: center;
   justify-content: center;
   background: var(--bg-secondary);
@@ -440,6 +446,7 @@ a:hover { color: var(--accent-hover); }
 .app-layout {
   display: flex;
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
 }
 
@@ -452,6 +459,7 @@ a:hover { color: var(--accent-hover); }
   display: flex;
   flex-direction: column;
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
 }
 
@@ -2187,7 +2195,7 @@ a:hover { color: var(--accent-hover); }
   z-index: 49;
 }
 
-/* PWA standalone: safe area insets for notched phones */
+/* Safe area insets for notched phones (PWA + mobile browser with viewport-fit=cover) */
 @supports (padding-top: env(safe-area-inset-top)) {
   .app-layout {
     padding-top: env(safe-area-inset-top);
@@ -2195,6 +2203,60 @@ a:hover { color: var(--accent-hover); }
   }
   .main-header {
     padding-top: max(var(--sp-4), env(safe-area-inset-top));
+  }
+  .sidebar {
+    padding-top: env(safe-area-inset-top);
+  }
+  .bulk-action-bar {
+    padding-bottom: max(var(--sp-3), env(safe-area-inset-bottom));
+  }
+  .toast-container {
+    bottom: max(var(--sp-6), calc(env(safe-area-inset-bottom) + var(--sp-4)));
+  }
+  .login-page {
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+}
+
+/* Touch interaction improvements for mobile browsers */
+@media (hover: none) and (pointer: coarse) {
+  /* Prevent long-press callout on interactive elements */
+  .sidebar-item,
+  .sidebar-add-group,
+  .sidebar-logo,
+  .btn,
+  .btn-icon,
+  .contact-name-cell,
+  .contacts-table tbody tr {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* Smoother touch scrolling */
+  .sidebar-nav,
+  .main-body,
+  .modal {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Larger touch targets */
+  .sidebar-item {
+    min-height: 44px;
+  }
+
+  .sidebar-add-group {
+    min-height: 44px;
+  }
+
+  /* Timeline actions always visible (no hover on touch) */
+  .timeline-actions {
+    opacity: 1;
+  }
+
+  /* Sidebar edit button always visible on touch */
+  .sidebar-item .sidebar-item-edit {
+    display: flex;
   }
 }
 
@@ -2219,6 +2281,8 @@ a:hover { color: var(--accent-hover); }
     width: 300px;
     min-width: 300px;
     border-right: none;
+    height: 100vh;
+    height: 100dvh;
   }
 
   .sidebar.open {
@@ -2385,6 +2449,7 @@ a:hover { color: var(--accent-hover); }
   /* Bulk action bar full-width on mobile */
   .bulk-action-bar {
     left: 0;
+    padding-bottom: max(var(--sp-3), env(safe-area-inset-bottom, 0px));
   }
 
   /* Profile view */
@@ -2451,10 +2516,20 @@ a:hover { color: var(--accent-hover); }
   /* Modals: full screen on mobile */
   .modal {
     max-width: 100%;
-    max-height: 100%;
-    height: 100%;
+    max-height: 100vh;
+    max-height: 100dvh;
+    height: 100vh;
+    height: 100dvh;
     border-radius: 0;
     margin: 0;
+  }
+
+  .modal-header {
+    padding-top: max(var(--sp-5), env(safe-area-inset-top, 0px));
+  }
+
+  .modal-footer {
+    padding-bottom: max(var(--sp-5), env(safe-area-inset-bottom, 0px));
   }
 
   .modal-body .form-row {
@@ -2476,7 +2551,7 @@ a:hover { color: var(--accent-hover); }
   .toast-container {
     left: var(--sp-4);
     right: var(--sp-4);
-    bottom: var(--sp-4);
+    bottom: max(var(--sp-4), env(safe-area-inset-bottom, 0px));
   }
 
   .toast {
