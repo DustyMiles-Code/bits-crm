@@ -2329,12 +2329,24 @@ const App = {
           <div class="custom-field-item" data-field-id="${f.id}">
             <span class="field-name">${this.esc(f.name)}</span>
             <span class="field-type">${f.field_type}</span>
+            ${f.field_type === 'dropdown' ? `<span class="text-xs text-tertiary" style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${this.esc((f.options || []).join(', '))}">${this.esc((f.options || []).join(', '))}</span>` : ''}
+            <button class="btn-icon field-edit" data-id="${f.id}" title="Edit">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </button>
             <button class="btn-icon field-delete" data-id="${f.id}" title="Delete">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
           </div>
         `).join('')
         : '<div class="text-tertiary text-sm">No custom fields yet</div>';
+
+      listEl.querySelectorAll('.field-edit').forEach(el => {
+        el.addEventListener('click', () => {
+          const fieldId = el.dataset.id;
+          const field = this.state.customFields.find(f => f.id === fieldId);
+          if (field) this.showEditFieldModal(field, ol, renderFields);
+        });
+      });
 
       listEl.querySelectorAll('.field-delete').forEach(el => {
         el.addEventListener('click', async () => {
@@ -2417,6 +2429,77 @@ const App = {
         renderFields(overlay);
       } catch (err) {
         this.toast(err.message, 'error');
+      }
+    });
+  },
+
+  showEditFieldModal(field, parentOverlay, rerenderFields) {
+    const isDropdown = field.field_type === 'dropdown';
+    const html = `
+      <div class="modal-header">
+        <div class="modal-title">Edit Field</div>
+        <button class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="edit-field-form">
+          <div class="form-group">
+            <label class="form-label">Name</label>
+            <input class="form-input" name="name" required value="${this.esc(field.name)}">
+          </div>
+          <div class="form-group mt-4">
+            <label class="form-label">Type</label>
+            <select class="form-select" name="field_type">
+              <option value="text" ${field.field_type === 'text' ? 'selected' : ''}>Text</option>
+              <option value="textarea" ${field.field_type === 'textarea' ? 'selected' : ''}>Textarea</option>
+              <option value="dropdown" ${field.field_type === 'dropdown' ? 'selected' : ''}>Dropdown</option>
+              <option value="date" ${field.field_type === 'date' ? 'selected' : ''}>Date</option>
+            </select>
+          </div>
+          <div class="form-group mt-4" id="edit-dropdown-options-group" ${!isDropdown ? 'hidden' : ''}>
+            <label class="form-label">Options (comma-separated)</label>
+            <input class="form-input" name="options" value="${this.esc((field.options || []).join(', '))}">
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary modal-close">Cancel</button>
+        <button type="button" class="btn btn-primary" id="edit-field-save">Save</button>
+      </div>
+    `;
+
+    const overlay = this.showModal(html);
+
+    const typeSelect = overlay.querySelector('[name="field_type"]');
+    const optionsGroup = overlay.querySelector('#edit-dropdown-options-group');
+    typeSelect.addEventListener('change', () => {
+      optionsGroup.hidden = typeSelect.value !== 'dropdown';
+    });
+
+    overlay.querySelector('#edit-field-save').addEventListener('click', async () => {
+      const form = overlay.querySelector('#edit-field-form');
+      const fd = new FormData(form);
+      const name = fd.get('name').trim();
+      if (!name) { this.toast('Name is required', 'error'); return; }
+
+      const fieldType = fd.get('field_type');
+      const options = fieldType === 'dropdown'
+        ? fd.get('options').split(',').map(s => s.trim()).filter(Boolean)
+        : [];
+
+      const saveBtn = overlay.querySelector('#edit-field-save');
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Saving...';
+
+      try {
+        await Fields.update(field.id, { name, field_type: fieldType, options });
+        this.state.customFields = await Fields.list();
+        this.toast('Field updated');
+        this.closeModal(overlay);
+        rerenderFields(parentOverlay);
+      } catch (err) {
+        this.toast(err.message, 'error');
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Save';
       }
     });
   },
