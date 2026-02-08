@@ -25,6 +25,12 @@ const App = {
     const session = await Auth.requireAuth();
     if (!session) return;
 
+    // Restore saved column visibility
+    try {
+      const saved = localStorage.getItem('crm_visible_columns');
+      if (saved) this.state.visibleColumns = new Set(JSON.parse(saved));
+    } catch {}
+
     this.cacheElements();
     this.bindEvents();
     await this.loadData();
@@ -490,6 +496,7 @@ const App = {
           } else {
             this.state.visibleColumns.delete(cb.value);
           }
+          localStorage.setItem('crm_visible_columns', JSON.stringify([...this.state.visibleColumns]));
           this.renderTable();
         });
       });
