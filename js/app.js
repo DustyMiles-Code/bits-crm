@@ -2324,6 +2324,8 @@ const App = {
     let parsedData = null;
     let mapping = {};
 
+    const groupOptions = this.state.groups.map(g => `<option value="${g.id}">${g.emoji} ${this.esc(g.name)}</option>`).join('');
+
     const html = `
       <div class="modal-header">
         <div class="modal-title">Import Contacts</div>
@@ -2331,6 +2333,13 @@ const App = {
       </div>
       <div class="modal-body">
         <div id="import-step-1">
+          <div class="form-group mb-4">
+            <label class="form-label">Import into group (optional)</label>
+            <select class="form-select" id="import-group-select">
+              <option value="">No group</option>
+              ${groupOptions}
+            </select>
+          </div>
           <div class="import-dropzone" id="import-dropzone">
             <div class="import-dropzone-icon">
               <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -2443,16 +2452,20 @@ const App = {
       importBtn.disabled = true;
       importBtn.textContent = 'Importing...';
       try {
-        const results = await ImportExport.importContacts(parsedData, mapping);
+        const selectedGroupId = overlay.querySelector('#import-group-select').value || null;
+        const results = await ImportExport.importContacts(parsedData, mapping, selectedGroupId);
         step2.hidden = true;
         step3.hidden = false;
         importBtn.hidden = true;
+        const importedGroup = selectedGroupId ? this.state.groups.find(g => g.id === selectedGroupId) : null;
+        const groupMsg = importedGroup ? `<div class="text-sm text-secondary mt-2">Added to ${importedGroup.emoji} ${this.esc(importedGroup.name)}</div>` : '';
         overlay.querySelector('#import-results').innerHTML = `
           <div class="empty-state" style="padding:24px">
             <div class="empty-state-icon" style="background:var(--success-light)">
               <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
             </div>
             <div class="empty-state-title">${results.imported} contacts imported</div>
+            ${groupMsg}
             ${results.errors.length > 0 ? `
               <div class="text-sm text-danger mt-4">${results.errors.length} errors:<br>${results.errors.slice(0, 5).map(e => this.esc(e)).join('<br>')}</div>
             ` : ''}

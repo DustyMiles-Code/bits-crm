@@ -616,6 +616,9 @@ a:hover { color: var(--accent-hover); }
   width: 22px;
   flex-shrink: 0;
   font-size: var(--font-size-md);
+  overflow: hidden;
+  text-overflow: clip;
+  line-height: 1;
 }
 
 .sidebar-item-label {

@@ -250,11 +250,11 @@ const ImportExport = {
   },
 
   // Import contacts from parsed CSV
-  async importContacts(rows, mapping) {
+  async importContacts(rows, mapping, groupId = null) {
     const user = await Auth.getUser();
     const headers = rows[0];
     const dataRows = rows.slice(1);
-    const results = { imported: 0, errors: [] };
+    const results = { imported: 0, errors: [], importedIds: [] };
 
     for (let i = 0; i < dataRows.length; i++) {
       const row = dataRows[i];
@@ -289,9 +289,15 @@ const ImportExport = {
           contact.phones = JSON.stringify([{ value: contact.phone, label: 'personal' }]);
         }
 
-        const { error } = await supabase.from('contacts').insert(contact);
+        const { data, error } = await supabase.from('contacts').insert(contact).select('id').single();
         if (error) throw error;
         results.imported++;
+        results.importedIds.push(data.id);
+
+        // Add to group if specified
+        if (groupId && data.id) {
+          await Contacts.addToGroup(data.id, groupId).catch(() => {});
+        }
       } catch (err) {
         results.errors.push(`Row ${i + 2}: ${err.message}`);
       }
