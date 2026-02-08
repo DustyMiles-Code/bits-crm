@@ -191,7 +191,14 @@ const App = {
   async loadContacts() {
     try {
       if (this.state.searchQuery) {
-        this.state.contacts = await Contacts.searchAcrossFields(this.state.searchQuery);
+        let results = await Contacts.searchAcrossFields(this.state.searchQuery);
+        // Filter by current group if one is selected
+        if (this.state.currentGroupId) {
+          results = results.filter(c =>
+            c.contact_groups && c.contact_groups.some(cg => cg.group_id === this.state.currentGroupId)
+          );
+        }
+        this.state.contacts = results;
       } else {
         this.state.contacts = await Contacts.list({
           groupId: this.state.currentGroupId,
@@ -343,6 +350,7 @@ const App = {
       this.mainTitle.textContent = group ? `${group.emoji} ${group.name}` : 'All Contacts';
       this.mainCount.textContent = this.state.contacts.length;
       this.mainCount.hidden = false;
+      this.searchInput.placeholder = group ? `Search in ${group.name}... (⌘K)` : 'Search contacts... (⌘K)';
 
       this.mainActions.innerHTML = `
         <button class="btn btn-ghost btn-sm desktop-only" id="btn-import" title="Import CSV">
